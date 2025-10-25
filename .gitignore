@@ -20,9 +20,10 @@ ehthumbs.db
 # 临时构建文件
 /target/
 /build/
+/unuse/
+/test/
 
 # 日志文件
-*.log
 logs/
 
 # 依赖目录
