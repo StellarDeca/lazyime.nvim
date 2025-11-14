@@ -35,7 +35,6 @@ impl InputMethodStatus {
             Ok(windows_controller) => windows_controller,
             Err(err) => return Err(err),
         };
-        let mode = windows_controller.get_mode();
         Ok(InputMethodStatus { windows_controller })
     }
 
