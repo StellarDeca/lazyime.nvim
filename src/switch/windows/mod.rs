@@ -14,7 +14,6 @@ use focus::*;
 use switch::*;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::TextServices::TF_LANGUAGEPROFILE;
-use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
 
 const SUPPORT_PROFILES_GUID: [windows::core::GUID; 1] = [windows::core::GUID::from_u128(
     0xFA550B04_5AD7_411F_A5AC_CA038EC515D7,
@@ -160,11 +159,4 @@ pub fn test() {
         }
         Err(_) => {}
     }
-}
-
-pub fn get_pid() -> u32 {
-    let handle = unsafe { GetForegroundWindow() };
-    let pid_: u32 = 0;
-    unsafe { GetWindowThreadProcessId(handle, Some(pid_ as *mut u32)) };
-    pid_
 }

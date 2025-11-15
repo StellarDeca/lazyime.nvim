@@ -8,6 +8,7 @@
 
     在当前的应用程序失去焦点后记忆当前的输入法状态并在再次成为焦点后对输入法状态进行恢复
 */
+use std::collections::HashMap;
 
 #[cfg(target_os = "windows")]
 mod windows;
@@ -19,31 +20,31 @@ mod macos;
 mod linux;
 
 #[derive(Debug)]
-pub(super) enum InputMethodMode {
+pub enum InputMethodMode {
     Native,
     English,
 }
 
-pub(super) struct InputMethodStatus {
+pub struct Switcher {
     #[cfg(target_os = "windows")]
     windows_controller: windows::WinInputMethodController,
 }
-impl InputMethodStatus {
-    pub(super) fn new(pid: u32) -> Result<InputMethodStatus, String> {
+impl Switcher {
+    pub fn new(pid: u32) -> Result<Switcher, String> {
         #[cfg(target_os = "windows")]
         let windows_controller = match windows::WinInputMethodController::new(pid) {
             Ok(windows_controller) => windows_controller,
             Err(err) => return Err(err),
         };
-        Ok(InputMethodStatus { windows_controller })
+        Ok(Switcher { windows_controller })
     }
 
-    pub(super) fn get_mode(&self) -> InputMethodMode {
+    pub fn get_mode(&self) -> InputMethodMode {
         #[cfg(target_os = "windows")]
         self.windows_controller.get_mode()
     }
 
-    pub(super) fn switch_mode(&self) -> bool {
+    pub fn switch_mode(&self) -> bool {
         #[cfg(target_os = "windows")]
         match self.windows_controller.get_mode() {
             InputMethodMode::Native => self
@@ -56,33 +57,23 @@ impl InputMethodStatus {
     }
 }
 
-pub fn test() {
-    use std::time::Instant;
-    let total_start = Instant::now();
 
-    // 阶段1: windows::test()
-    let stage1_start = Instant::now();
-    windows::test();
-    let stage1_duration = stage1_start.elapsed();
-    println!("🔄 windows::test() 用时: {:?}", stage1_duration);
+pub struct SwitcherMgr {
+    switcher: HashMap<u16, Switcher>,
+}
+impl SwitcherMgr {
+    pub fn new() -> SwitcherMgr {
+        let switcher = HashMap::new();
+        SwitcherMgr { switcher }
+    }
 
-    // 阶段2: 创建 InputMethodStatus
-    let stage2_start = Instant::now();
-    let status = match InputMethodStatus::new(windows::get_pid()) {
-        Ok(status) => status,
-        Err(err) => panic!("{}", err),
-    };
-    let stage2_duration = stage2_start.elapsed();
-    println!("🔄 InputMethodStatus::new() 用时: {:?}", stage2_duration);
+    pub fn create_switcher(&mut self, cid: u16, pid: u32) -> Result<(), String> {
+        let switcher = Switcher::new(pid)?;
+        self.switcher.insert(cid, switcher);
+        Ok(())
+    }
 
-    // 阶段3: 获取和切换模式
-    let stage3_start = Instant::now();
-    println!("{:?}", status.get_mode());
-    status.switch_mode();
-    println!("{:?}", status.get_mode());
-    let stage3_duration = stage3_start.elapsed();
-    println!("🔄 模式操作用时: {:?}", stage3_duration);
-
-    let total_duration = total_start.elapsed();
-    println!("✅ 总用时: {:?}", total_duration);
+    pub fn get_switcher(&mut self, cid: &u16) -> Option<&Switcher> {
+        self.switcher.get(cid)
+    }
 }

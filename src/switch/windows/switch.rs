@@ -15,7 +15,7 @@ SendMessage(foregroundIME, WM_IME_CONTROL, IMC_GETCONVERSIONMODE, 0)
     1025 -> Chinese / Full shape
 
 */
-use crate::switch::InputMethodMode;
+use super::InputMethodMode;
 use std::fmt::Display;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::Foundation::{LPARAM, WPARAM};
@@ -23,7 +23,6 @@ use windows::Win32::System::Com::{
     CoCreateInstance, CoInitializeEx, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED,
 };
 use windows::Win32::UI::Input::Ime::ImmGetDefaultIMEWnd;
-
 use windows::Win32::UI::Input::KeyboardAndMouse::{GetKeyboardLayout, GetKeyboardLayoutList, HKL};
 use windows::Win32::UI::TextServices::{
     CLSID_TF_InputProcessorProfiles, ITfInputProcessorProfiles, TF_LANGUAGEPROFILE,
