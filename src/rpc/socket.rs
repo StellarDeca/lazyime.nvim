@@ -2,62 +2,10 @@
 服务器API，创建 socket 等待消息指令
 采用单例模式，当服务器启用或端口被占用时结束自身
  */
-use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::time::timeout;
 
 pub const MAX_MESSAGE_SIZE: usize = 4096;
-
-pub enum AddressStatus {
-    NoServer,
-    Running,
-    OtherProgram,
-}
-impl AddressStatus {
-    pub fn to_string(&self) -> String {
-        match self {
-            AddressStatus::Running => "Running".to_string(),
-            AddressStatus::NoServer => "NoServer".to_string(),
-            AddressStatus::OtherProgram => "Running".to_string(),
-        }
-    }
-}
-
-pub async fn is_server_running(
-    address: &str,
-    request: String,
-    expect_response: String,
-) -> AddressStatus {
-    let mut client = match timeout(Duration::from_millis(100), TcpStream::connect(address)).await {
-        Ok(s) => match s {
-            Ok(client) => client,
-            Err(_) => return AddressStatus::NoServer,
-        },
-        Err(_) => return AddressStatus::NoServer,
-    };
-    let check_result = tokio::time::timeout(Duration::from_millis(100), async {
-        send_message(&mut client, request).await?;
-        let response = receive_bytes(&mut client).await?;
-        if response == expect_response {
-            Ok::<bool, String>(true)
-        } else {
-            Ok(false)
-        }
-    })
-    .await;
-    match check_result {
-        Ok(inner_result) => match inner_result {
-            Ok(true) => AddressStatus::Running,
-            Ok(false) => AddressStatus::OtherProgram,
-            Err(e) => {
-                eprintln!("Health check I/O error: {}", e);
-                AddressStatus::OtherProgram
-            }
-        },
-        Err(_) => AddressStatus::OtherProgram,
-    }
-}
 
 pub async fn init_socket(address: &str) -> Result<TcpListener, String> {
     let listen = match TcpListener::bind(address).await {

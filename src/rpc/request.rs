@@ -10,7 +10,6 @@ request 需要包含以下字段：
 
  */
 use serde::{Deserialize, Serialize};
-use serde_json::Error as SerdeError;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum SwitchCommand {
@@ -18,7 +17,6 @@ pub enum SwitchCommand {
     Switch,
     Init,
     Exit,
-    Running,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -38,9 +36,12 @@ impl Request {
         Request { cid, params }
     }
 
-    pub fn from_json_message(json_string: &str) -> Result<Request, SerdeError> {
+    pub fn from_json_message(json_string: String) -> Result<Request, String> {
         // 使用 serde_json::from_str 函数
-        serde_json::from_str(json_string)
+        match serde_json::from_str(&json_string) {
+            Ok(request) => { Ok(request) },
+            Err(json_error) => { Err(json_error.to_string()) },
+        }
     }
 
     pub fn to_json_message(&self) -> String {

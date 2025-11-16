@@ -10,7 +10,6 @@ response 回复包含以下字段：
     }
 */
 use serde::{Deserialize, Serialize};
-use serde_json::Error as SerdeError;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum InputMode_ {
@@ -38,25 +37,29 @@ pub struct Result_ {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Response {
     pub cid: u16,
+    pub message: String,
     pub success: bool,
     pub result: Result_,
-    pub error: String,
+    pub error: Option<String>,
 }
 impl Response {
-    pub fn new(cid: u16, success: bool, mode: InputMode_, error: String) -> Self {
+    pub fn new(cid: u16, message: String, success: bool, mode: InputMode_, error: Option<String>) -> Self {
         let result = Result_ {
             mode
         };
-        Response { cid, success, result, error }
+        Response { cid, message, success, result, error }
     }
 
     pub fn to_json_message(&self) -> String {
         serde_json::to_string(&self).unwrap()
     }
 
-    pub fn from_json_message(json_string: &str) -> Result<Response, SerdeError> {
+    pub fn from_json_message(json_string: String) -> Result<Response, String> {
         // 使用 serde_json::from_str 函数
-        serde_json::from_str(json_string)
+        match serde_json::from_str(&json_string) {
+            Ok(request) => { Ok(request) },
+            Err(json_error) => { Err(json_error.to_string()) },
+        }
     }
 }
 
