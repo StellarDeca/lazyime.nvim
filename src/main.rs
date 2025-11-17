@@ -1,9 +1,9 @@
 mod core;
 mod switch;
 
+use switch::*;
 use std::env;
 use std::error::Error;
-use switch::*;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut args = env::args();
@@ -16,7 +16,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         println!("{}", res);
     } else {
         let mode = switcher.get_mode();
-        println!("{:?}", mode);
+        println!("{}", mode);
     }
     Ok(())
 }
