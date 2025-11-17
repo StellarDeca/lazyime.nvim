@@ -9,7 +9,7 @@ Windows 在跨进程的输入法控制下存在 IMM 与 TSF
 mod focus;
 mod switch;
 
-use crate::switch::InputMethodMode;
+use super::InputMethodMode;
 use focus::*;
 use switch::*;
 use windows::Win32::Foundation::HWND;
@@ -31,7 +31,7 @@ pub(super) struct WinInputMethodController {
     ground_handle: HWND,
 }
 impl WinInputMethodController {
-    pub(super) fn new(pid: u32) -> Result<Self, String> {
+    pub(super) fn new() -> Result<Self, String> {
         /*
         初始化数据结构体
         同时判断系统是否支持两种语言或者仅有一个语言支持内部状态切换
@@ -52,7 +52,7 @@ impl WinInputMethodController {
         };
 
         // 尝试初始化焦点窗口
-        let ground_handle = match get_ground_handle(pid) {
+        let ground_handle = match get_ground_handle() {
             Ok(focus) => focus,
             Err(e) => return Err(e),
         };
@@ -120,7 +120,6 @@ impl WinInputMethodController {
         } else {
             0
         };
-
         (native_avail, english_avail)
     }
 
@@ -143,20 +142,5 @@ impl WinInputMethodController {
             .find(|profile| profile.guidProfile == SUPPORT_PROFILES_GUID[0]);
 
         Ok(support_profile)
-    }
-}
-
-pub fn test() {
-    let res = get_available_profiles(0x0804);
-    // println!("{:?}", res);
-    match res {
-        Ok(profiles) => {
-            for profile in profiles {
-                if profile.guidProfile == SUPPORT_PROFILES_GUID[0] {
-                    println!("Foreground");
-                }
-            }
-        }
-        Err(_) => {}
     }
 }

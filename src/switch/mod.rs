@@ -8,8 +8,6 @@
 
     在当前的应用程序失去焦点后记忆当前的输入法状态并在再次成为焦点后对输入法状态进行恢复
 */
-use std::collections::HashMap;
-
 #[cfg(target_os = "windows")]
 mod windows;
 
@@ -19,32 +17,28 @@ mod macos;
 #[cfg(target_os = "linux")]
 mod linux;
 
-#[derive(Debug)]
-pub enum InputMethodMode {
-    Native,
-    English,
-}
+use crate::core::InputMethodMode;
 
-pub struct Switcher {
+pub(super) struct Switcher {
     #[cfg(target_os = "windows")]
     windows_controller: windows::WinInputMethodController,
 }
 impl Switcher {
-    pub fn new(pid: u32) -> Result<Switcher, String> {
+    pub(super) fn new() -> Result<Switcher, String> {
         #[cfg(target_os = "windows")]
-        let windows_controller = match windows::WinInputMethodController::new(pid) {
+        let windows_controller = match windows::WinInputMethodController::new() {
             Ok(windows_controller) => windows_controller,
             Err(err) => return Err(err),
         };
         Ok(Switcher { windows_controller })
     }
 
-    pub fn get_mode(&self) -> InputMethodMode {
+    pub(super) fn get_mode(&self) -> InputMethodMode {
         #[cfg(target_os = "windows")]
         self.windows_controller.get_mode()
     }
 
-    pub fn switch_mode(&self) -> bool {
+    pub(super) fn switch_mode(&self) -> bool {
         #[cfg(target_os = "windows")]
         match self.windows_controller.get_mode() {
             InputMethodMode::Native => self
@@ -54,26 +48,5 @@ impl Switcher {
                 self.windows_controller.switch_mode(InputMethodMode::Native)
             }
         }
-    }
-}
-
-
-pub struct SwitcherMgr {
-    switcher: HashMap<u16, Switcher>,
-}
-impl SwitcherMgr {
-    pub fn new() -> SwitcherMgr {
-        let switcher = HashMap::new();
-        SwitcherMgr { switcher }
-    }
-
-    pub fn create_switcher(&mut self, cid: u16, pid: u32) -> Result<(), String> {
-        let switcher = Switcher::new(pid)?;
-        self.switcher.insert(cid, switcher);
-        Ok(())
-    }
-
-    pub fn get_switcher(&mut self, cid: &u16) -> Option<&Switcher> {
-        self.switcher.get(cid)
     }
 }
