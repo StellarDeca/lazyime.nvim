@@ -33,12 +33,12 @@ impl Switcher {
         Ok(Switcher { windows_controller })
     }
 
-    pub(super) fn get_mode(&self) -> InputMethodMode {
+    pub(super) fn query(&self) -> InputMethodMode {
         #[cfg(target_os = "windows")]
         self.windows_controller.get_mode()
     }
 
-    pub(super) fn switch_mode(&self) -> bool {
+    pub(super) fn switch(&self) -> bool {
         #[cfg(target_os = "windows")]
         match self.windows_controller.get_mode() {
             InputMethodMode::Native => self

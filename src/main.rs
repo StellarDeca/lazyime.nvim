@@ -1,5 +1,6 @@
 mod core;
 mod switch;
+mod parser;
 
 use switch::*;
 use std::env;
@@ -12,10 +13,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let switcher = Switcher::new()?;
 
     if let Some(command) = command && command == "switch" {
-        let res = switcher.switch_mode();
+        let res = switcher.switch();
         println!("{}", res);
     } else {
-        let mode = switcher.get_mode();
+        let mode = switcher.query();
         println!("{}", mode);
     }
     Ok(())
