@@ -38,3 +38,8 @@ impl SupportLanguage {
         }
     }
 }
+
+pub struct Cursor {
+    pub row: usize,
+    pub column: usize,
+}

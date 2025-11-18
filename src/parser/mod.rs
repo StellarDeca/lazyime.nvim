@@ -72,9 +72,9 @@ impl NodeRange {
         self.nodes_range.push(node.range())
     }
 
-    pub(super) fn in_range(self, cursor: [usize; 2]) -> bool {
+    pub(super) fn in_range(self, cursor: Cursor) -> bool {
         // 判断cursor的位置是否在node节点里。注意 坐标都是 UTF-16字符坐标
-        let (sr, sc) = (cursor[0], cursor[0]);
+        let (sr, sc) = (cursor.row, cursor.column);
 
         fn cmp_pos(r1: usize, c1: usize, r2: usize, c2: usize) -> i8 {
             // 判断给定的r1, c1是否在r2,c2范围内
