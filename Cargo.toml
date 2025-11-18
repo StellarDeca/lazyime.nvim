@@ -3,8 +3,14 @@ name = "lazyime"
 version = "0.2.0"
 edition = "2024"
 
+[build-dependencies]
+cc="*"
+
 [dependencies.windows]
 version = "0.62.2"
 features = ["Win32_UI_TextServices", "Win32_System_Com", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_Ime"]
 
 [dependencies]
+tree-sitter = "0.25.1"
+tree-sitter-rust = "0.24.0"
+tree-sitter-python = "0.25.0"
