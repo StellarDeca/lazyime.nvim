@@ -1,28 +1,13 @@
 mod rust;
 
 use tree_sitter::{Language, Query};
+use crate::core::SupportLanguage;
 
-pub enum SupportLanguage {
-    Rust,
-}
-impl SupportLanguage {
-    pub(super) fn adapter(&self) -> Box<dyn LanguageAdapter> {
-        match self {
+pub(super) struct Adapter;
+impl Adapter {
+    pub(super) fn adapter(type_: &SupportLanguage) -> Box<dyn LanguageAdapter> {
+        match type_ {
             SupportLanguage::Rust => Box::new(rust::RustAdapter),
-        }
-    }
-
-    pub fn from_string(s: String) -> Option<SupportLanguage> {
-        if s.to_lowercase() == "rust" {
-            Some(SupportLanguage::Rust)
-        } else {
-            None
-        }
-    }
-
-    pub fn to_string(&self) -> String {
-        match self {
-            SupportLanguage::Rust => "rust".to_string(),
         }
     }
 }

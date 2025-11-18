@@ -18,3 +18,23 @@ impl InputMethodMode {
         InputMethodMode::English
     }
 }
+
+
+pub enum SupportLanguage {
+    Rust,
+}
+impl SupportLanguage {
+    pub fn from_string(s: String) -> Option<SupportLanguage> {
+        if s.to_lowercase() == "rust" {
+            Some(SupportLanguage::Rust)
+        } else {
+            None
+        }
+    }
+
+    pub fn to_string(&self) -> String {
+        match self {
+            SupportLanguage::Rust => "rust".to_string(),
+        }
+    }
+}
