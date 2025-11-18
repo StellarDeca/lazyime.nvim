@@ -66,43 +66,30 @@ pub(super) struct NodeRange {
     nodes_range: Vec<Range>,
 }
 impl NodeRange {
-    fn new() -> NodeRange {
-        NodeRange {
-            nodes_range: vec![],
-        }
-    }
+    fn new() -> NodeRange { NodeRange { nodes_range: vec![] } }
 
     fn add_node(&mut self, node: Node) {
         self.nodes_range.push(node.range())
     }
 
-    pub(super) fn in_range(self, cursor: [u16; 2]) -> bool {
+    pub(super) fn in_range(self, cursor: [usize; 2]) -> bool {
         // 判断cursor的位置是否在node节点里。注意 坐标都是 UTF-16字符坐标
-        // 注意
         let (sr, sc) = (cursor[0], cursor[0]);
 
-        fn cmp_pos(r1: u16, c1: u16, r2: u16, c2: u16) -> i8 {
+        fn cmp_pos(r1: usize, c1: usize, r2: usize, c2: usize) -> i8 {
             // 判断给定的r1, c1是否在r2,c2范围内
             // 范围左面返回-1,范围右面返回1,相等返回0
-            if r1 < r2 {
-                return -1;
-            };
-            if r1 > r2 {
-                return 1;
-            };
-            if c1 < c2 {
-                return -1;
-            };
-            if c1 > c2 {
-                return 1;
-            };
+            if r1 < r2 { return -1 };
+            if r1 > r2 { return 1 };
+            if c1 < c2 { return -1 };
+            if c1 > c2 { return 1 };
             0
         }
         for range in &self.nodes_range {
             let start = range.start_point;
             let end = range.end_point;
-            let (rs, cs) = (start.row as u16, start.column as u16);
-            let (re, ce) = (end.row as u16, end.column as u16);
+            let (rs, cs) = (start.row, start.column);
+            let (re, ce) = (end.row, end.column);
 
             // 判断区间是否有重叠（左闭右开）
             if cmp_pos(sr, sc, rs, cs) >= 0 && cmp_pos(sr, sc, re, ce) < 0 {
