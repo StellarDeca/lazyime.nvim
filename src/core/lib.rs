@@ -1,5 +1,6 @@
 //! 全局公用的 结构体 与 枚举
 use std::fmt::Display;
+use serde::{Serialize, Deserialize};
 
 /// 表示输入法当前的模式状态。
 ///
@@ -14,7 +15,7 @@ use std::fmt::Display;
 /// assert_eq!(mode.to_string(), "native");
 /// assert_eq!(InputMethodMode::default(), InputMethodMode::English);
 /// ```
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Copy, Clone)]
 pub enum InputMethodMode {
     /// 母语或非英文输入模式
     Native,
@@ -40,6 +41,7 @@ impl InputMethodMode {
 /// 表示当前支持的编程语言。
 ///
 /// 主要用于配置或通知客户端当前编辑器/进程正在使用的语言环境。
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub enum SupportLanguage {
     Rust,
 }
@@ -71,6 +73,7 @@ impl SupportLanguage {
 }
 
 /// 表示文本编辑器中的光标位置。（相对与 UTF-16 编码字符， 普通字符算一个字符，emoji表情符号算两个字符
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct Cursor {
     /// 光标所在的行号 0基
     pub row: usize,

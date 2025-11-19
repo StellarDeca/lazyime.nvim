@@ -10,7 +10,14 @@ cc="*"
 version = "0.62.2"
 features = ["Win32_UI_TextServices", "Win32_System_Com", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_Ime"]
 
+[dependencies.serde]
+version = "1.0.228"
+features = ["derive"]
+
 [dependencies]
+rand = "0.10.0-rc.5"
+serde_json = "1.0.145"
 tree-sitter = "0.25.1"
 tree-sitter-rust = "0.24.0"
 tree-sitter-python = "0.25.0"
+
