@@ -3,15 +3,15 @@ mod switch;
 mod parser;
 mod rpc;
 
+use crate::rpc::*;
+use crate::parser::Parser;
+use crate::switch::Switcher;
+use crate::core::{InputMethodMode, SupportLanguage};
+
 use std::io;
+use std::time::{Duration, Instant};
 use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::{AtomicU16, Ordering};
-use std::time::{Duration, Instant};
-
-use crate::core::{InputMethodMode, SupportLanguage};
-use crate::parser::Parser;
-use crate::rpc::*;
-use crate::switch::Switcher;
 
 /// 若长时间无客户端连接则退出（秒）
 const IDLE_ACCEPT_TIMEOUT_SECS: u64 = 300;
