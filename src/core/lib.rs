@@ -56,7 +56,7 @@ impl SupportLanguage {
     /// assert_eq!(SupportLanguage::from_string("Rust".to_string()), Some(SupportLanguage::Rust));
     /// assert!(SupportLanguage::from_string("python".to_string()).is_none());
     /// ```
-    pub fn from_string(s: String) -> Option<SupportLanguage> {
+    pub fn from_string(s: &String) -> Option<SupportLanguage> {
         if s.to_lowercase() == "rust" {
             Some(SupportLanguage::Rust)
         } else {
