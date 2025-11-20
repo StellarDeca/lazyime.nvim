@@ -21,6 +21,18 @@ pub(crate) enum GrammarMode {
     Code,
     Comment,
 }
+impl GrammarMode {
+    pub(crate) fn from_bool(in_comment: bool) -> GrammarMode {
+        if in_comment { GrammarMode::Comment } else { GrammarMode::Code}
+    }
+
+    pub(crate) fn as_bool(&self) -> bool {
+        match self {
+            GrammarMode::Code => { false }
+            GrammarMode::Comment => { true }
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct CommandResult {
