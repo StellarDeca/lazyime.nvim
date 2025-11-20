@@ -41,24 +41,20 @@ impl Parser {
         self.trees.insert(type_, tree);
     }
 
-    pub(super) fn get_comments(&mut self, type_: &SupportLanguage, code: &String, ) -> Option<NodesRange> {
+    pub(super) fn get_comments(&mut self, type_: &SupportLanguage, code: &String, ) -> NodesRange {
         let type_ = type_.to_string();
+        let mut node_range = NodesRange::new();
         if let Some(tree) = self.trees.get(&type_).unwrap() {
             let root = tree.root_node();
             let query = self.query.get(&type_).unwrap();
             let mut query_cursor = QueryCursor::new();
             let mut res = query_cursor.matches(&query, root, code.as_bytes());
             // 遍历结果，返回comment的range数组
-            let mut node_range = NodesRange::new();
             while let Some(m) = res.next() {
-                for iter in m.captures {
-                    node_range.add_node(iter.node)
-                }
-            }
-            Some(node_range)
-        } else {
-            None
-        }
+                for iter in m.captures { node_range.add_node(iter.node) };
+            };
+        };
+        node_range
     }
 }
 
@@ -118,7 +114,7 @@ pub fn main() { println!("Hello World!"); }
         let lang = &SupportLanguage::Rust;
         parser.add_language(lang);
         parser.update_tree(lang, code);
-        let res = parser.get_comments(lang, code).unwrap();
+        let res = parser.get_comments(lang, code);
         println!("{:?}", res.nodes_range);
         // 判断 TS 解析是否正常, 检查边界条件 与 内部条件 文档注释同样视为单行注释 或 块注释
         // 单行注释
