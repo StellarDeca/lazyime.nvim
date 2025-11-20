@@ -33,15 +33,12 @@ impl Switcher {
         self.windows_controller.get_mode()
     }
 
-    pub(super) fn switch(&self) -> bool {
+    pub(super) fn switch(&self, target_mode: InputMethodMode) -> bool {
         #[cfg(target_os = "windows")]
-        match self.windows_controller.get_mode() {
-            InputMethodMode::Native => self
-                .windows_controller
-                .switch_mode(InputMethodMode::English),
-            InputMethodMode::English => {
-                self.windows_controller.switch_mode(InputMethodMode::Native)
-            }
-        }
+        let mode = self.windows_controller.get_mode();
+        if target_mode != mode {
+            return self.windows_controller.switch_mode(target_mode)
+        };
+        true
     }
 }
