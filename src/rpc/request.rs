@@ -52,8 +52,4 @@ impl ClientRequest {
             Err(json_error) => Err(json_error.to_string()),
         }
     }
-
-    pub(crate) fn to_json_message(&self) -> String {
-        serde_json::to_string(self).unwrap()
-    }
 }
