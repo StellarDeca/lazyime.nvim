@@ -34,8 +34,8 @@ impl Switcher {
     }
 
     pub(super) fn switch(&self, target_mode: InputMethodMode) -> bool {
+        let mode = self.query();
         #[cfg(target_os = "windows")]
-        let mode = self.windows_controller.get_mode();
         if target_mode != mode {
             return self.windows_controller.switch_mode(target_mode)
         };

@@ -1,10 +1,10 @@
-/**
-Windows 在跨进程的输入法控制下存在 IMM 与 TSF
-    IMM 可以跨进程调用，但是实现坑点很多，而且会被 TSF 逐步取代
-    TSF 虽然实现更加简单，但是不能跨进程工作
-
-最终还是使用win32 api 进行基于 iMM 与 Language 输入法控制。查询、控制输入法的内部状态存在困难
- **/
+//! Windows 在跨进程的输入法控制下存在 IMM 与 TSF
+//! IMM 可以跨进程调用，但是实现坑点很多，而且会被 TSF 逐步取代
+//! TSF 虽然实现更加简单，但是不能跨进程工作
+//! 最终还是使用win32 api 进行基于 IMM 与 Language 输入法控制。查询、控制输入法的内部状态存在困难
+//!
+//! 即使使用 win32 api， 跨进程 切换 输入法内部状态依旧不可行； 只能切换 键盘布局
+//!
 
 mod focus;
 mod switch;
@@ -75,19 +75,9 @@ impl WinInputMethodController {
     }
 
     fn check_supported_languages(languages: &[u16]) -> (u16, u16) {
-        let native = NATIVE_LANGUAGE_ID[0];
-        let english = ENGLISH_LANGUAGE_ID[0];
-
-        let native_avail = if languages.contains(&native) {
-            native
-        } else {
-            0
-        };
-        let english_avail = if languages.contains(&english) {
-            english
-        } else {
-            0
-        };
-        (native_avail, english_avail)
+        // 按照 从左到右 匹配，匹配成功则返回
+        let native_avail_id = NATIVE_LANGUAGE_ID.iter().find(|&id| languages.contains(id));
+        let english_avail_id = ENGLISH_LANGUAGE_ID.iter().find(|&id| languages.contains(id));
+        (*native_avail_id.unwrap_or(&0), *english_avail_id.unwrap_or(&0))
     }
 }
