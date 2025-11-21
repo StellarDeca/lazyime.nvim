@@ -74,6 +74,3 @@ pub struct Cursor {
     /// 光标所在的列号 0基
     pub column: usize,
 }
-impl Cursor {
-    pub fn new(row: usize, column: usize) -> Cursor { Cursor { row, column } }
-}
