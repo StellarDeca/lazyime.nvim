@@ -31,12 +31,6 @@ impl Display for InputMethodMode {
         }
     }
 }
-impl InputMethodMode {
-    /// 返回默认的输入法模式，即 [`InputMethodMode::English`]。
-    pub fn default() -> InputMethodMode {
-        InputMethodMode::English
-    }
-}
 
 /// 表示当前支持的编程语言。
 ///
