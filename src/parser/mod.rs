@@ -101,6 +101,11 @@ impl NodesRange {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    impl Cursor {
+        pub fn new(row: usize, column: usize) -> Cursor { Cursor { row, column } }
+    }
+    
     #[test]
     fn test() {
         let code = &r#"
