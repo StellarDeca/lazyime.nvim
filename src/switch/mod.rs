@@ -1,13 +1,8 @@
 /*
 这个模块主要实现：
-    其他语言 <==> 英文 输入之间的切换 （可以是不同输入法之间的切换，也可以是通体输入法内部输入模式之间的切换）
-
-    在同一输入法中控制输入法的输入：
-        获取候选输入（如拼音）、候选框内容；
-        设置输入法的输入模式（如 全角，半角；中/英输入；中/英标点输入 等）
-
-    在当前的应用程序失去焦点后记忆当前的输入法状态并在再次成为焦点后对输入法状态进行恢复
-*/
+    其他语言 <==> 英文 输入法的切换
+ */
+   
 #[cfg(target_os = "windows")]
 mod windows;
 
@@ -33,20 +28,17 @@ impl Switcher {
         Ok(Switcher { windows_controller })
     }
 
-    pub(super) fn get_mode(&self) -> InputMethodMode {
+    pub(super) fn query(&self) -> InputMethodMode {
         #[cfg(target_os = "windows")]
         self.windows_controller.get_mode()
     }
 
-    pub(super) fn switch_mode(&self) -> bool {
+    pub(super) fn switch(&self, target_mode: InputMethodMode) -> bool {
+        let mode = self.query();
         #[cfg(target_os = "windows")]
-        match self.windows_controller.get_mode() {
-            InputMethodMode::Native => self
-                .windows_controller
-                .switch_mode(InputMethodMode::English),
-            InputMethodMode::English => {
-                self.windows_controller.switch_mode(InputMethodMode::Native)
-            }
-        }
+        if target_mode != mode {
+            return self.windows_controller.switch_mode(target_mode)
+        };
+        true
     }
 }
