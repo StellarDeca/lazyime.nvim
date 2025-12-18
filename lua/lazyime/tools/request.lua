@@ -4,7 +4,7 @@ local F = {}
 
 ---@class Cursor
 ---@field row integer        -- 0-based
----@field column integer     -- UTF-16 column, 0-based
+---@field column integer     -- utf8 bytes column, 0-based
 
 ---@alias CommandMode
 ---| '"Analyze"'
