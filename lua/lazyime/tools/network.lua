@@ -1,6 +1,8 @@
 ----- 网络通信模块 -----
 
 local F = {}
+local request = require("lazyime.tools.request")
+local response = require("lazyime.tools.response")
 
 --- 返回 server socket套接字
 --- @param path string
@@ -74,6 +76,25 @@ function F.recv_message(server)
 		end
 	end)
 	return coroutine.yield()
+end
+
+--- 发送请求并接受响应
+--- @param tcp uv.uv_tcp_t
+--- @param req ClientRequest
+--- @return ClientResponse? res
+function F.request(tcp, req)
+	local msg = request.to_json_message(req)
+
+	if not F.send_message(tcp, msg) then
+		return nil
+	end
+
+	local raw = F.recv_message(tcp)
+	if not raw then
+		return nil
+	end
+
+	return response.from_json_message(raw)
 end
 
 return F
