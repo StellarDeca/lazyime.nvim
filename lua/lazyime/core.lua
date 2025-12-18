@@ -12,6 +12,14 @@ function F.run_server()
 	return network.start_server(path)
 end
 
+--- 停止服务器实例
+---@param runtime table
+function F.stop_server(runtime)
+	local req = request.create_exit_req(runtime.cid)
+	local msg = request.to_json_message(req)
+	network.send_message(runtime.tcp, msg)
+end
+
 --- 切换到指定状态输入法
 ---@param runtime table
 ---@param mode InputMethodMode
