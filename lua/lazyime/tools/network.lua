@@ -46,7 +46,9 @@ function F.start_server(path)
 				--- 确保回调只执行一次,只关心第一次输出的端口号
 				--- 唤醒协程并返回system结果
 				port_found = true
-				coroutine.resume(co, port)
+				vim.schedule(function()
+					coroutine.resume(co, port)
+				end)
 			end
 		end,
 	}, function(res)
@@ -68,7 +70,9 @@ function F.start_server(path)
 		if err then
 			error(("Failed to connect server! %s"):format(err))
 		else
-			coroutine.resume(co)
+			vim.schedule(function()
+				coroutine.resume(co)
+			end)
 		end
 	end)
 	coroutine.yield()
@@ -86,9 +90,13 @@ function F.send_message(server, msg)
 	local message = header .. msg
 	server:write(message, function(err)
 		if err then
-			coroutine.resume(co, false)
+			vim.schedule(function()
+				coroutine.resume(co, false)
+			end)
 		else
-			coroutine.resume(co, true)
+			vim.schedule(function()
+				coroutine.resume(co, true)
+			end)
 		end
 	end)
 	return coroutine.yield()
@@ -105,7 +113,9 @@ function F.recv_message(server)
 		--- 先读取 8 字节 头部
 		--- 再读取消息
 		if err then
-			coroutine.resume(co, nil)
+			vim.schedule(function()
+				coroutine.resume(co, nil)
+			end)
 		end
 
 		buffer = buffer .. chunk
@@ -124,7 +134,9 @@ function F.recv_message(server)
 					buffer = buffer:sub(size + 1)
 
 					server:read_stop()
-					coroutine.resume(co, message)
+					vim.schedule(function()
+						coroutine.resume(co, message)
+					end)
 					break
 				else
 					-- 继续读取消息
