@@ -1,8 +1,33 @@
 ----- 网络通信模块 -----
 
 local F = {}
+local buffer = ""
 local request = require("lazyime.tools.request")
 local response = require("lazyime.tools.response")
+
+-- 发送时：将长度转为 8 字节大端序
+local function pack_u64be(n)
+	local low = n % 2 ^ 32
+	local high = math.floor(n / 2 ^ 32)
+	return string.char(
+		math.floor(high / 2 ^ 24) % 256,
+		math.floor(high / 2 ^ 16) % 256,
+		math.floor(high / 2 ^ 8) % 256,
+		high % 256,
+		math.floor(low / 2 ^ 24) % 256,
+		math.floor(low / 2 ^ 16) % 256,
+		math.floor(low / 2 ^ 8) % 256,
+		low % 256
+	)
+end
+
+-- 接收时：将 8 字节大端序转回数字
+local function unpack_u64be(s)
+	local b1, b2, b3, b4, b5, b6, b7, b8 = string.byte(s, 1, 8)
+	local high = b1 * 2 ^ 24 + b2 * 2 ^ 16 + b3 * 2 ^ 8 + b4
+	local low = b5 * 2 ^ 24 + b6 * 2 ^ 16 + b7 * 2 ^ 8 + b8
+	return high * 2 ^ 32 + low
+end
 
 --- 返回 server socket套接字
 --- @param path string
@@ -10,13 +35,19 @@ local response = require("lazyime.tools.response")
 function F.start_server(path)
 	local co = coroutine.running()
 	local buf = ""
+	local port_found = false
 	vim.system({ path }, {
 		stdout = function(_, data)
 			if data then
 				buf = buf .. data
 			end
 			local port = tonumber(buf:match("(%d+)\n"))
-			coroutine.resume(co, port) --- 唤醒协程并返回system结果
+			if port and not port_found then
+				--- 确保回调只执行一次,只关心第一次输出的端口号
+				--- 唤醒协程并返回system结果
+				port_found = true
+				coroutine.resume(co, port)
+			end
 		end,
 	}, function(res)
 		if res.code ~= 0 then
@@ -51,8 +82,9 @@ end
 --- @return boolean result
 function F.send_message(server, msg)
 	local co = coroutine.running()
-	server:send_buffer_size(512 * 1024)
-	server:write(msg, function(err)
+	local header = pack_u64be(#msg)
+	local message = header .. msg
+	server:write(message, function(err)
 		if err then
 			coroutine.resume(co, false)
 		else
@@ -67,12 +99,38 @@ end
 --- @return string? message
 function F.recv_message(server)
 	local co = coroutine.running()
+	local size
+
 	server:read_start(function(err, chunk)
-		server:read_stop()
+		--- 先读取 8 字节 头部
+		--- 再读取消息
 		if err then
 			coroutine.resume(co, nil)
-		else
-			coroutine.resume(co, chunk)
+		end
+
+		buffer = buffer .. chunk
+		while true do
+			if not size then
+				if #buffer >= 8 then
+					size = tonumber(unpack_u64be(buffer:sub(1, 8)))
+					buffer = buffer:sub(9)
+				else
+					-- 继续读取头部
+					break
+				end
+			else
+				if #buffer >= size then
+					local message = buffer:sub(1, size)
+					buffer = buffer:sub(size + 1)
+
+					server:read_stop()
+					coroutine.resume(co, message)
+					break
+				else
+					-- 继续读取消息
+					break
+				end
+			end
 		end
 	end)
 	return coroutine.yield()
@@ -84,7 +142,6 @@ end
 --- @return ClientResponse? res
 function F.request(tcp, req)
 	local msg = request.to_json_message(req)
-
 	if not F.send_message(tcp, msg) then
 		return nil
 	end
