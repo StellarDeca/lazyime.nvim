@@ -43,9 +43,9 @@ function F.work()
 			end
 			task[ev] = nil
 		end
+		working = false -- 解锁
 	end)
 	coroutine.resume(co)
-	working = false -- 解锁
 end
 
 function F.wake_work()
