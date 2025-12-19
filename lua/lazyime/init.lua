@@ -12,6 +12,7 @@ local runtime = {
 	method = "English", -- 当前输入法
 }
 
+--- 向 task queue 中添加任务
 local function add_task(ev, task)
 	tasks.push_task({
 		event = ev.event,
@@ -21,6 +22,8 @@ local function add_task(ev, task)
 	tasks.wake_work()
 end
 
+--- 初始化 runtime 缓存表
+--- 确保只初始化一次
 local function init_runtime()
 	if not runtime.tcp or runtime.cid == 0 then
 		local network = require("lazyime.tools.network")
@@ -36,6 +39,26 @@ local function init_runtime()
 		runtime.grammar = nil
 		runtime.method = res.result.method
 	end
+end
+
+--- 排除非文件
+--- 排除插件窗口
+--- return true should ignore
+---@param ev table
+---@return boolean is_ignore
+local function ignore_buffer(ev)
+	-- 排除非文件 buffer
+	local buftype = vim.api.nvim_get_option_value("buftype", { buf = ev.buf })
+	if buftype ~= "" then
+		return true
+	end
+	-- 排除插件窗口
+	local ft = vim.api.nvim_get_option_value("filetype", { buf = ev.buf })
+	local ignore_ft = { "TelescopePrompt", "NvimTree", "lazy", "mason", "notify" }
+	if vim.tbl_contains(ignore_ft, ft) then
+		return true
+	end
+	return false
 end
 
 function F.setup(opts)
@@ -62,13 +85,13 @@ function F.setup(opts)
 		end,
 	})
 
-    vim.api.nvim_create_autocmd("VimLeave", {
+	vim.api.nvim_create_autocmd("VimLeave", {
 		group = AutoCmdsGroup,
 		callback = function(ev)
 			add_task(ev, core.stop_server)
 		end,
 	})
-    --]]
+	--]]
 
 	vim.api.nvim_create_autocmd("BufEnter", {
 		group = AutoCmdsGroup,
@@ -83,6 +106,9 @@ function F.setup(opts)
 	vim.api.nvim_create_autocmd("InsertEnter", {
 		group = AutoCmdsGroup,
 		callback = function(ev)
+			if ignore_buffer(ev) then
+				return
+			end
 			local task = function(param)
 				local grammar, method = core.grammar_analysis_and_switch(param)
 				param.grammar = grammar
@@ -106,6 +132,9 @@ function F.setup(opts)
 	vim.api.nvim_create_autocmd({ "CursorMovedI", "TextChangedI" }, {
 		group = AutoCmdsGroup,
 		callback = function(ev)
+			if ignore_buffer(ev) then
+				return
+			end
 			local task = function(param)
 				--- 仅仅在 grammar 发生变化时进行切换
 				local grammar = core.grammer_analysis(param)
