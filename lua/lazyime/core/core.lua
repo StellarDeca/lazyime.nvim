@@ -1,9 +1,39 @@
 ----- 核心插件逻辑 -----
 
 local F = {}
+local logger = require("lazyime.tools.log")
 local network = require("lazyime.tools.network")
 local pathlib = require("lazyime.tools.pathlib")
 local request = require("lazyime.tools.request")
+local response = require("lazyime.tools.response")
+
+--- 发送请求并接收响应
+---@param tcp uv.uv_tcp_t
+---@param req ClientRequest
+---@return ClientResponse? res, Error? err
+function F.request(tcp, req)
+	local msg, err1 = request.to_json_message(req)
+	if not msg then
+		return nil, err1
+	end
+
+	local ok, err2 = network.send_message(tcp, msg)
+	if not ok then
+		return nil, err2
+	end
+
+	local raw, err3 = network.recv_message(tcp)
+	if not raw then
+		return nil, err3
+	end
+
+	local res, err4 = response.from_json_message(raw)
+	if not res then
+		return nil, logger.make_error("ProtocolError", "failed to parse response", false, false)
+	end
+
+	return res, nil
+end
 
 --- 启动并连接服务器
 ---@return integer? port
@@ -31,7 +61,7 @@ end
 ---@return integer, Error? reason
 function F.get_cid(runtime)
 	local req = request.create_switch_req(0, "", "Lua", F.get_cursor())
-	local res, err = network.request(runtime.tcp, req)
+	local res, err = F.request(runtime.tcp, req)
 	if not res or not res.success then
 		return 0, err
 	end
@@ -45,7 +75,7 @@ end
 ---@return Error? reason 失败原因
 function F.switch(runtime, mode)
 	local req = request.create_method_only_req(runtime.cid, mode)
-	local res, err = network.request(runtime.tcp, req)
+	local res, err = F.request(runtime.tcp, req)
 	if not res or not res.success then
 		return false, err
 	end
@@ -61,7 +91,7 @@ function F.grammer_analysis(runtime)
 	local cursor = F.get_cursor()
 
 	local req = request.creat_analysis_req(runtime.cid, code, language, cursor)
-	local res, err = network.request(runtime.tcp, req)
+	local res, err = F.request(runtime.tcp, req)
 
 	if not res or not res.success then
 		return runtime.grammar, err
@@ -79,7 +109,7 @@ function F.grammar_analysis_and_switch(runtime)
 	local cursor = F.get_cursor()
 
 	local req = request.create_switch_req(runtime.cid, code, language, cursor)
-	local res, err = network.request(runtime.tcp, req)
+	local res, err = F.request(runtime.tcp, req)
 
 	if not res or not res.success then
 		return runtime.grammar, runtime.method, err

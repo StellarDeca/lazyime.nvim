@@ -3,8 +3,6 @@
 local F = {}
 local buffer = ""
 local logger = require("lazyime.tools.log")
-local request = require("lazyime.tools.request")
-local response = require("lazyime.tools.response")
 
 -- 发送时：将长度转为 8 字节大端序
 local function pack_u64be(n)
@@ -169,34 +167,6 @@ function F.recv_message(server)
 		end
 	end)
 	return coroutine.yield()
-end
-
---- 发送请求并接收响应
----@param tcp uv.uv_tcp_t
----@param req ClientRequest
----@return ClientResponse? res, Error? err
-function F.request(tcp, req)
-	local msg, err1 = request.to_json_message(req)
-	if not msg then
-		return nil, err1
-	end
-
-	local ok, err2 = F.send_message(tcp, msg)
-	if not ok then
-		return nil, err2
-	end
-
-	local raw, err3 = F.recv_message(tcp)
-	if not raw then
-		return nil, err3
-	end
-
-	local res, err4 = response.from_json_message(raw)
-	if not res then
-		return nil, logger.make_error("ProtocolError", "failed to parse response", false, false)
-	end
-
-	return res, nil
 end
 
 return F
