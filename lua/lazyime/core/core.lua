@@ -6,7 +6,9 @@ local pathlib = require("lazyime.tools.pathlib")
 local request = require("lazyime.tools.request")
 
 --- 启动并连接服务器
----@return uv.uv_tcp_t
+---@return integer? port
+---@return uv.uv_tcp_t? socket
+---@return Error? error
 function F.run_server()
 	local path = pathlib.get_server_path()
 	return network.start_server(path)
@@ -14,55 +16,63 @@ end
 
 --- 停止服务器实例
 ---@param runtime table
+---@return true? ok, Error? error
 function F.stop_server(runtime)
 	local req = request.create_exit_req(runtime.cid)
-	local msg = request.to_json_message(req)
-	network.send_message(runtime.tcp, msg)
+	local msg, err = request.to_json_message(req)
+	if not msg then
+		return nil, err
+	end
+	return network.send_message(runtime.tcp, msg)
 end
 
 --- 切换到指定状态输入法
 ---@param runtime table
 ---@param mode InputMethodMode
----@return boolean
+---@return boolean res
+---@return Error? reason 失败原因
 function F.switch(runtime, mode)
 	local req = request.create_method_only_req(runtime.cid, mode)
-	local res = network.request(runtime.tcp, req)
+	local res, err = network.request(runtime.tcp, req)
 	if not res or not res.success then
-		return false
+		return false, err
 	end
-	return res.result.method == mode
+	return res.result.method == mode, nil
 end
 
 --- 对buf进行语法分析
 ---@param runtime table
 ---@return GrammarMode
+---@return Error? reason 失败原因
 function F.grammer_analysis(runtime)
 	local code, language = F.get_buffer()
 	local cursor = F.get_cursor()
 
 	local req = request.creat_analysis_req(runtime.cid, code, language, cursor)
-	local res = network.request(runtime.tcp, req)
+	local res, err = network.request(runtime.tcp, req)
 
 	if not res or not res.success then
-		return runtime.grammar
+		return runtime.grammar, err
 	end
-	return res.result.grammar
+	return res.result.grammar, nil
 end
 
 --- 对当前buf进行语法分析并切换到对应输入法
 ---@param runtime table
----@return GrammarMode grammar, InputMethodMode mode
+---@return GrammarMode grammar
+---@return InputMethodMode mode
+---@return Error? reason 错误原因
 function F.grammar_analysis_and_switch(runtime)
 	local code, language = F.get_buffer()
 	local cursor = F.get_cursor()
 
 	local req = request.create_switch_req(runtime.cid, code, language, cursor)
-	local res = network.request(runtime.tcp, req)
+	local res, err = network.request(runtime.tcp, req)
 
 	if not res or not res.success then
-		return runtime.grammar, runtime.method
+		return runtime.grammar, runtime.method, err
 	end
-	return res.result.grammar, res.result.method
+	return res.result.grammar, res.result.method, nil
 end
 
 --- 获取当前 buffer 内容与类型
