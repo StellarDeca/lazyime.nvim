@@ -3,16 +3,26 @@
 local F = {}
 
 --- 协程版等待函数
---- @param ms number 毫秒
+---@param ms number 毫秒
+---@return true? ok, Error? error
 function F.sleep(ms)
 	local co = coroutine.running()
 	if not co then
-		return
-	end -- 如果不在协程里，直接返回
+		return nil,
+			{
+				name = "SleepOutsideCoroutine",
+				error = "time.sleep must be called inside a coroutine",
+				fatal = true,
+			}
+	end
 
 	local timer = vim.uv.new_timer()
 	if not timer then
-		return nil
+		return nil, {
+			name = "TimerCreateFailed",
+			error = "vim.uv.new_timer() returned nil",
+			fatal = true,
+		}
 	end
 
 	timer:start(ms, 0, function()
@@ -26,6 +36,7 @@ function F.sleep(ms)
 
 	-- 挂起当前协程
 	coroutine.yield()
+	return true, nil
 end
 
 return F
