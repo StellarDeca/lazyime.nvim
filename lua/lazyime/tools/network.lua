@@ -2,6 +2,7 @@
 
 local F = {}
 local buffer = ""
+local logger = require("lazyime.tools.log")
 local request = require("lazyime.tools.request")
 local response = require("lazyime.tools.response")
 
@@ -31,11 +32,16 @@ end
 
 --- 返回 server socket套接字
 --- @param path string
---- @return uv.uv_tcp_t
+--- @return integer? port, uv.uv_tcp_t? socket, Error? err
 function F.start_server(path)
 	local co = coroutine.running()
 	local buf = ""
 	local port_found = false
+	if not co then
+		return nil,
+			nil,
+			logger.make_error("InvalidContext", "start_server must be called inside coroutine", false, true)
+	end
 	vim.system({ path }, {
 		stdout = function(_, data)
 			if data then
@@ -53,71 +59,88 @@ function F.start_server(path)
 		end,
 	}, function(res)
 		if res.code ~= 0 then
-			error(("Server failed to start or exited with error code %d! Stderr: %s"):format(res.code, res.stderr))
+			vim.schedule(function()
+				coroutine.resume(
+					co,
+					nil,
+					logger.make_error("ServerExit", ("server exited with code %d"):format(res.code), false, true)
+				)
+			end)
 		else
 			--- 正常结束服务端,插件正常结束
 		end
 	end)
-
-	--- 暂停协程 得到协程结果
-	local port = coroutine.yield()
-	local tcp, err_msg, err_name = vim.uv.new_tcp()
-	if not tcp or not port then
-		error(("Failed to create new TCP handle on port %s: %s (%s)."):format(tostring(port), err_msg, err_name))
+	local port, err = coroutine.yield()
+	if not port then
+		return nil, nil, err
 	end
-
-	tcp:connect("127.0.0.1", port, function(err)
-		if err then
-			error(("Failed to connect server! %s"):format(err))
+	local tcp = vim.uv.new_tcp()
+	if not tcp then
+		return port, nil, logger.make_error("TcpInitFailed", "failed to create tcp handle", false, true)
+	end
+	tcp:connect("127.0.0.1", port, function(connect_err)
+		if connect_err then
+			vim.schedule(function()
+				coroutine.resume(co, false, logger.make_error("TcpConnectFailed", tostring(connect_err), false, true))
+			end)
 		else
 			vim.schedule(function()
-				coroutine.resume(co)
+				coroutine.resume(co, true, nil)
 			end)
 		end
 	end)
-	coroutine.yield()
-
-	return tcp
+	local ok, err_ = coroutine.yield()
+	if not ok then
+		return port, nil, err_
+	else
+		return port, tcp, nil
+	end
 end
 
 --- 发送消息
 --- @param server uv.uv_tcp_t
 --- @param msg string
---- @return boolean result
+--- @return true? result, Error? error
 function F.send_message(server, msg)
 	local co = coroutine.running()
+	if not co then
+		return nil, logger.make_error("InvalidContext", "send_message must be called inside coroutine", false, true)
+	end
 	local header = pack_u64be(#msg)
 	local message = header .. msg
 	server:write(message, function(err)
 		if err then
 			vim.schedule(function()
-				coroutine.resume(co, false)
+				coroutine.resume(co, false, logger.make_error("WriteFailed", tostring(err), true, false))
 			end)
 		else
 			vim.schedule(function()
-				coroutine.resume(co, true)
+				coroutine.resume(co, true, nil)
 			end)
 		end
 	end)
 	return coroutine.yield()
 end
 
---- 接受消息
---- @param server uv.uv_tcp_t
---- @return string? message
+--- 接收消息
+---@param server uv.uv_tcp_t
+---@return string? message, Error? err
 function F.recv_message(server)
-	local co = coroutine.running()
 	local size
-
+	local co = coroutine.running()
+	if not co then
+		return nil, logger.make_error("InvalidContext", "recv_message must be called inside coroutine", false, true)
+	end
 	server:read_start(function(err, chunk)
 		--- 先读取 8 字节 头部
 		--- 再读取消息
 		if err then
+			server:read_stop()
 			vim.schedule(function()
-				coroutine.resume(co, nil)
+				coroutine.resume(co, nil, logger.make_error("ReadFailed", tostring(err), false, false))
 			end)
+			return
 		end
-
 		buffer = buffer .. chunk
 		while true do
 			if not size then
@@ -135,7 +158,7 @@ function F.recv_message(server)
 
 					server:read_stop()
 					vim.schedule(function()
-						coroutine.resume(co, message)
+						coroutine.resume(co, message, nil)
 					end)
 					break
 				else
@@ -148,22 +171,32 @@ function F.recv_message(server)
 	return coroutine.yield()
 end
 
---- 发送请求并接受响应
---- @param tcp uv.uv_tcp_t
---- @param req ClientRequest
---- @return ClientResponse? res
+--- 发送请求并接收响应
+---@param tcp uv.uv_tcp_t
+---@param req ClientRequest
+---@return ClientResponse? res, Error? err
 function F.request(tcp, req)
-	local msg = request.to_json_message(req)
-	if not F.send_message(tcp, msg) then
-		return nil
+	local msg, err1 = request.to_json_message(req)
+	if not msg then
+		return nil, err1
 	end
 
-	local raw = F.recv_message(tcp)
+	local ok, err2 = F.send_message(tcp, msg)
+	if not ok then
+		return nil, err2
+	end
+
+	local raw, err3 = F.recv_message(tcp)
 	if not raw then
-		return nil
+		return nil, err3
 	end
 
-	return response.from_json_message(raw)
+	local res, err4 = response.from_json_message(raw)
+	if not res then
+		return nil, logger.make_error("ProtocolError", "failed to parse response", false, false)
+	end
+
+	return res, nil
 end
 
 return F

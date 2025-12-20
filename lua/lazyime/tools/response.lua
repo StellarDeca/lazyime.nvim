@@ -42,9 +42,18 @@ local F = {}
 ---| ErrorResponse
 
 ---@param msg string
----@return ClientResponse
+---@return ClientResponse? response, Error? error
 function F.from_json_message(msg)
-	return vim.json.decode(msg)
+	local ok, result = pcall(vim.json.decode, msg)
+	if not ok then
+		return nil, {
+			name = "JsonDecodeFailed",
+			error = tostring(result),
+			fatal = false,
+			panic = true,
+		}
+	end
+	return result, nil
 end
 
 return F

@@ -110,9 +110,18 @@ function F.create_exit_req(cid)
 end
 
 ---@param req ClientRequest
----@return string
+---@return string? request, Error? error
 function F.to_json_message(req)
-	return vim.json.encode(req)
+	local ok, result = pcall(vim.json.encode, req)
+	if not ok then
+		return nil,
+			{
+				name = "JsonEncodeFailed",
+				error = tostring(result),
+				fatal = false, -- 请求都序列化不了，属于逻辑错误
+			}
+	end
+	return result, nil
 end
 
 return F
