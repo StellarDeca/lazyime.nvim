@@ -26,6 +26,18 @@ function F.stop_server(runtime)
 	return network.send_message(runtime.tcp, msg)
 end
 
+--- 获取cid
+---@param runtime table
+---@return integer, Error? reason
+function F.get_cid(runtime)
+	local req = request.create_switch_req(0, "", "Lua", F.get_cursor())
+	local res, err = network.request(runtime.tcp, req)
+	if not res or not res.success then
+		return 0, err
+	end
+	return res.cid
+end
+
 --- 切换到指定状态输入法
 ---@param runtime table
 ---@param mode InputMethodMode
