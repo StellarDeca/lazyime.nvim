@@ -33,13 +33,24 @@ local working = false
 --- work 会随着协程一同挂起与恢复
 --- work 保证事项绝不遗漏 按顺序执行
 function F.work()
+	if working then
+		return
+	end
 	working = true -- 加锁
 	local co = coroutine.create(function()
 		while #queue > 0 do
 			local ev = table.remove(queue, 1)
 			local task_ = task[ev]
 			if task_ then
-				task_.task(task_.params)
+				-- 分配任务
+				-- 大部分错误由 task 内部处理
+				-- 这里仅仅捕获致命错误
+				local ok, err = pcall(task_.task, task_.params)
+				if not ok then
+					vim.schedule(function()
+						vim.notify("Could not handle error: " .. tostring(err), vim.log.levels.ERROR)
+					end)
+				end
 			end
 			task[ev] = nil
 		end
