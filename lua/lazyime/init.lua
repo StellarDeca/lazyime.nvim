@@ -4,7 +4,6 @@ local F = {}
 local logger = require("lazyime.tools.log")
 local tasks = require("lazyime.core.tasks")
 local core = require("lazyime.core.core")
-local time = require("lazyime.tools.time")
 local AutoCmdsGroup = vim.api.nvim_create_augroup("LazyIme", { clear = true })
 local runtime = {
 	cid = 0, -- 客户端ID
