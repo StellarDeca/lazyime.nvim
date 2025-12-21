@@ -155,13 +155,26 @@ function F.push_log(log)
 end
 
 --- 按照日期写入日志文件
----@param log LogMessage
----@return boolean ok
----@return Error? err
-function F.write_log(log)
-	local date = os.date("%Y-%m-%d", os.time())
-	local path = string.format("%s\\%s.log", Config.log_path, date)
-	return iolib.write(path, vim.inspect(log) .. "\n")
+---@param event string
+function F.write_log(event)
+	-- 收割这个事件类型
+	local cache = runtime.log_cache[event]
+	for _, logs in pairs(cache.traces) do
+		for _, log in ipairs(logs) do
+			local date = os.date("%Y-%m-%d", os.time())
+			local path = string.format("%s\\%s.log", Config.log_path, date)
+			local ok, err = iolib.write(path, vim.inspect(log) .. "\n")
+			if not ok then
+				runtime.stopped = true
+				local message = "Lazyime log mode panic!" .. vim.inspect(err)
+				vim.schedule(function()
+					vim.notify(message, F.warn)
+				end)
+			end
+		end
+	end
+	--- 移除已做事项
+	runtime.log_cache[event] = nil
 end
 
 --- 日志文件管理
@@ -189,21 +202,7 @@ function F.log_tick()
 	local now = vim.uv.now()
 	for key, cache in pairs(runtime.log_cache) do
 		if cache.first_time and now - cache.first_time >= Config.max_time then
-			-- 收割这个事件类型
-			for _, logs in pairs(cache.traces) do
-				for _, log in ipairs(logs) do
-					local ok, err = F.write_log(log)
-					if not ok then
-						runtime.stopped = true
-						local message = "Lazyime log mode panic!" .. vim.json.encode(err)
-						vim.schedule(function()
-							vim.notify(message, F.warn)
-						end)
-					end
-				end
-			end
-			--- 移除已做事项
-			runtime.log_cache[key] = nil
+			F.write_log()
 		end
 	end
 end
@@ -211,20 +210,16 @@ end
 --- 启动 logger 服务
 --- 每隔一段时间检查 log 事项清单
 function F.run_logger()
-	-- 1. 立即执行一次日志清理（启动时清理老旧文件）
-	-- 使用异步 wrap 避免启动时大量 IO 导致短暂卡顿
-	coroutine.wrap(function()
-		F.logs_manage()
-	end)()
+	-- 清理多余日志文件
+	F.logs_manage()
 
-	-- 2. 设置 Tick 定时器：每隔一段时间收割 cache
-	-- 建议时间设为 Config.max_time 的 1/2 或 1/3，确保及时收割
+	-- 设置计时器
 	local tick_interval = math.floor(Config.max_time / 2)
-	if tick_interval < 1000 then
-		tick_interval = 1000
-	end -- 最快 1 秒一次
 
 	local timer = vim.uv.new_timer()
+	if not timer then
+		return
+	end
 	timer:start(
 		tick_interval,
 		tick_interval,
@@ -235,19 +230,6 @@ function F.run_logger()
 				return
 			end
 			F.log_tick()
-		end)
-	)
-
-	-- 3. 设置长定时器：每天执行一次日志清理
-	local clean_timer = vim.uv.new_timer()
-	local one_day = 24 * 60 * 60 * 1000
-	clean_timer:start(
-		one_day,
-		one_day,
-		vim.schedule_wrap(function()
-			if not runtime.stopped then
-				F.logs_manage()
-			end
 		end)
 	)
 end
