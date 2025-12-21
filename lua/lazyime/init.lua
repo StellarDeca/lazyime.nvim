@@ -26,7 +26,8 @@ end
 
 --- 错误处理函数
 ---@param err Error?
-local function handle_error(err)
+---@param info table?
+local function handle_error(err, info)
 	if not err then
 		return nil
 	end
@@ -41,23 +42,24 @@ local function handle_error(err)
 		vim.notify(("Lazyime warn: %s"):format(err.error), vim.log.levels.WARN)
 	end
 	--- 记录错误
-	vim.print("error handle", err)
+	logger.push_log(logger.make_log_task("ErrorHandle", "Main", nil, runtime, err, info, logger.warn))
 end
 
 --- 初始化 runtime 缓存表
 --- 确保只初始化一次
 local function init_runtime()
 	if runtime.port == 0 or not runtime.tcp or runtime.cid == 0 then
+		logger.run_logger()
 		local port, socket, err = core.run_server()
 		if not port or not socket then
-			handle_error(err)
+			handle_error(err, { notify = "Failed run server", port = port, socket = socket })
 		end
 		runtime.port = port
 		runtime.tcp = socket
 
 		local cid, err1 = core.get_cid(runtime)
 		if cid == 0 then
-			handle_error(err1)
+			handle_error(err1, { notify = "Failed run server", port = port, socket = socket })
 		end
 		runtime.cid = cid
 
@@ -65,10 +67,12 @@ local function init_runtime()
 		local success, err2 = core.switch(runtime, "English")
 		if success == nil then
 			mode = "Native"
-			handle_error(err2)
+			handle_error(err2, { notify = "Failed to init method mode" })
 		end
 		runtime.method = mode
 		runtime.grammar = nil
+
+		logger.push_log(logger.make_log_task("LazyImeInit", "Main", nil, runtime))
 	end
 end
 
@@ -95,7 +99,7 @@ end
 function F.setup(opts)
 	opts = opts or {}
 
-	-- VimEnter, VimLeave, BufEnter AutoCmd
+	-- FocusGained, VimLeave, BufEnter AutoCmd
 	vim.api.nvim_create_autocmd("FocusGained", {
 		group = AutoCmdsGroup,
 		callback = function(ev)
@@ -111,6 +115,7 @@ function F.setup(opts)
 				end
 			end
 			add_task(ev, task)
+			logger.push_log(logger.make_log_task(ev.event, "Main", nil, runtime))
 		end,
 	})
 
@@ -124,6 +129,7 @@ function F.setup(opts)
 				end
 			end
 			add_task(ev, task)
+			logger.push_log(logger.make_log_task(ev.event, "Main", nil, runtime))
 		end,
 	})
 
@@ -152,6 +158,7 @@ function F.setup(opts)
 				param.method = method
 			end
 			add_task(ev, task)
+			logger.push_log(logger.make_log_task(ev.event, "Main", nil, runtime))
 		end,
 	})
 
@@ -165,6 +172,7 @@ function F.setup(opts)
 				end
 			end
 			add_task(ev, task)
+			logger.push_log(logger.make_log_task(ev.event, "Main", nil, runtime))
 		end,
 	})
 
@@ -196,6 +204,7 @@ function F.setup(opts)
 				end
 			end
 			add_task(ev, task)
+			logger.push_log(logger.make_log_task(ev.event, "Main", nil, runtime))
 		end,
 	})
 end

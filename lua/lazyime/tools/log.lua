@@ -19,15 +19,16 @@
 ---@field trace_id integer 调用链ID
 ---@field time number 事件时间
 ---@field level "INFO" | "ERROR" | "WARN" 日志级别
----@field context table 插件全局缓存数据
+---@field context table? 插件全局缓存数据
 ---@field error Error? 错误信息
 ---@field info table? 详细信息
 
 local F = {}
+local iolib = require("lazyime.tools.iolib")
 
 local Config = {
 	max_time = 5 * 1000,
-	log_path = vim.fn.stdpath("state") .. "/lazyime/logs",
+	log_path = iolib.get_log_path(),
 }
 
 local runtime = {
@@ -88,7 +89,7 @@ end
 ---@param name string 事件名
 ---@param source string 事件模块名
 ---@param trace_id_ integer? 调用链ID
----@param context table 插件全局缓存数据
+---@param context table? 插件全局缓存数据
 ---@param error Error? 错误信息
 ---@param info table? 详细信息
 ---@param level number? 日志级别默认INFO
@@ -160,70 +161,24 @@ end
 function F.write_log(log)
 	local date = os.date("%Y-%m-%d", os.time())
 	local path = string.format("%s\\%s.log", Config.log_path, date)
-	local ok, err = pcall(function()
-		local ok = vim.uv.fs_stat(Config.log_path)
-		if not ok then
-			vim.uv.fs_mkdir(Config.log_path, 448) -- 0o700
-		end
-		local fh, ferr = io.open(path, "a+")
-		if not fh then
-			error("open log file failed: " .. tostring(ferr))
-		end
-		fh:write(vim.json.encode(log) .. "\n")
-		fh:close()
-	end)
-	if not ok then
-		return false, F.make_error("LogWriteIo", tostring(err), true, false)
-	end
-	return true, nil
+	return iolib.write(path, vim.inspect(log) .. "\n")
 end
 
 --- 日志文件管理
 --- 只保留一周的日志
 --- 自动删除老旧日志
 function F.logs_manage()
-	local uv = vim.loop
-	local log_dir = Config.log_path
-	local stat = uv.fs_stat(log_dir)
-	if not stat or stat.type ~= "directory" then
-		return
-	end
-
-	-- 扫描目录
-	local now = os.time()
-	local req = uv.fs_scandir(log_dir)
-	if not req then
-		return
-	end
-
-	while true do
-		local name, typ = uv.fs_scandir_next(req)
-		if not name then
-			break
+	iolib.gc_by_date(Config.log_path, 7, function(name)
+		local y, m, d = name:match("(%d%d%d%d)%-(%d%d)%-(%d%d)")
+		if not y then
+			return nil
 		end
-
-		-- 只处理普通文件
-		if typ == "file" then
-			-- 从文件名解析日期（YYYY-MM-DD）
-			local y, m, d = name:match("(%d%d%d%d)%-(%d%d)%-(%d%d)")
-			if y and m and d then
-				local file_time = os.time({
-					year = y,
-					month = m,
-					day = d,
-				})
-
-				-- 计算天数差
-				local age_days = math.floor((now - file_time) / (60 * 60 * 24))
-				if age_days >= 7 then
-					local full_path = log_dir .. "\\" .. name
-					pcall(os.remove, full_path)
-				end
-			end
-			--- 无法解析
-			--- 保留文件
-		end
-	end
+		return {
+			year = tonumber(y),
+			month = tonumber(m),
+			day = tonumber(d),
+		}
+	end)
 end
 
 --- 检查runtime.log_cache是否满足了写入条件

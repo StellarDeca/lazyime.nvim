@@ -3,6 +3,7 @@
 --- 旧的未处理事件直接舍弃
 
 local F = {}
+local logger = require("lazyime.tools.log")
 
 ---@alias TaskFunction fun(params: table): any
 
@@ -49,6 +50,17 @@ function F.work()
 				if not ok then
 					vim.schedule(function()
 						vim.notify("Could not handle error: " .. tostring(err), vim.log.levels.ERROR)
+						logger.push_log(
+							logger.make_log_task(
+								"TaskMGR",
+								"core.task",
+								nil,
+								{ task_queue = queue },
+								err,
+								task_.params,
+								logger.error
+							)
+						)
 					end)
 				end
 			end

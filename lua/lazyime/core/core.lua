@@ -12,6 +12,9 @@ local response = require("lazyime.tools.response")
 ---@param req ClientRequest
 ---@return ClientResponse? res, Error? err
 function F.request(tcp, req)
+	local tid = logger.get_trace_id()
+	logger.push_log(logger.make_log_task("RequestSend", "core.core", tid, nil, nil, req))
+
 	local msg, err1 = request.to_json_message(req)
 	if not msg then
 		return nil, err1
@@ -29,8 +32,10 @@ function F.request(tcp, req)
 
 	local res, err4 = response.from_json_message(raw)
 	if not res then
-		return nil, logger.make_error("ProtocolError", "failed to parse response", false, false)
+		return nil, err4
 	end
+
+	logger.push_log(logger.make_log_task("ResponseRecv", "core.core", tid, nil, nil, res))
 
 	return res, nil
 end
