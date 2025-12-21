@@ -26,7 +26,7 @@ function F.get_server_path()
 end
 
 function F.get_log_path()
-	local log = vim.fn.stdpath("state") .. "/lazyime/logs/"
+	return vim.fn.stdpath("state") .. "/lazyime/logs"
 end
 
 local function ensure_dir(path)
