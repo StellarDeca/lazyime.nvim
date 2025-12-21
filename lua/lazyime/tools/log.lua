@@ -202,7 +202,7 @@ function F.log_tick()
 	local now = vim.uv.now()
 	for key, cache in pairs(runtime.log_cache) do
 		if cache.first_time and now - cache.first_time >= Config.max_time then
-			F.write_log()
+			F.write_log(key)
 		end
 	end
 end
