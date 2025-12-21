@@ -2,8 +2,8 @@
 
 local F = {}
 local logger = require("lazyime.tools.log")
+local iolib = require("lazyime.tools.iolib")
 local network = require("lazyime.tools.network")
-local pathlib = require("lazyime.tools.pathlib")
 local request = require("lazyime.tools.request")
 local response = require("lazyime.tools.response")
 
@@ -40,7 +40,7 @@ end
 ---@return uv.uv_tcp_t? socket
 ---@return Error? error
 function F.run_server()
-	local path = pathlib.get_server_path()
+	local path = iolib.get_server_path()
 	return network.start_server(path)
 end
 
