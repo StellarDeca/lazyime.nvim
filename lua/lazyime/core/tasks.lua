@@ -2,14 +2,14 @@
 --- 对于同类型事件,只处理最新的事件
 --- 旧的未处理事件直接舍弃
 
+local F = {}
+
 ---@alias TaskFunction fun(params: table): any
 
 ---@class Task
 ---@field event string  -- 来自 autocmd 的 ev 表中的 ev 参数
 ---@field params table -- 任务函数参数
 ---@field task TaskFunction  -- 具体的业务逻辑函数
-
-local F = {}
 
 --- 任务队列存储
 --- 键是事件名称 (string)，值是任务对象
@@ -60,9 +60,7 @@ function F.work()
 end
 
 function F.wake_work()
-	if not working then
-		F.work()
-	end
+	F.work()
 end
 
 --- 推送任务
