@@ -122,4 +122,48 @@ function F.write(path, msg)
 	return true, nil
 end
 
+--- 清理目录中超过指定天数的文件
+---@param dir string 目录路径
+---@param max_days integer 保留天数
+---@param date_parser fun(name:string):osdate? 从文件名解析日期
+---@return boolean ok
+---@return Error? err
+function F.gc_by_date(dir, max_days, date_parser)
+	local stat = vim.uv.fs_stat(dir)
+	if not stat or stat.type ~= "directory" then
+		return false, { "FileClean", "Path exists but is not a directory: " .. dir, true, false }
+	end
+
+	local now = os.time()
+	local req, err1 = vim.uv.fs_scandir(dir)
+	if not req then
+		return false, { "FileClean", tostring(err1), true, false }
+	end
+
+	while true do
+		local name, typ = vim.uv.fs_scandir_next(req)
+		if not name then
+			break
+		end
+
+		if typ ~= "file" then
+			goto continue
+		end
+
+		local date = date_parser(name)
+		if not date then
+			goto continue
+		end
+
+		local file_time = os.time(date)
+		local age_days = math.floor((now - file_time) / 86400)
+
+		if age_days >= max_days then
+			local full = dir .. "/" .. name
+			pcall(vim.uv.fs_unlink, full)
+		end
+		::continue::
+	end
+end
+
 return F
