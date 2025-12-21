@@ -48,32 +48,30 @@ end
 --- 初始化 runtime 缓存表
 --- 确保只初始化一次
 local function init_runtime()
-	if runtime.port == 0 or not runtime.tcp or runtime.cid == 0 then
-		logger.run_logger()
-		local port, socket, err = core.run_server()
-		if not port or not socket then
-			handle_error(err, { notify = "Failed run server", port = port, socket = socket })
-		end
-		runtime.port = port
-		runtime.tcp = socket
-
-		local cid, err1 = core.get_cid(runtime)
-		if cid == 0 then
-			handle_error(err1, { notify = "Failed run server", port = port, socket = socket })
-		end
-		runtime.cid = cid
-
-		local mode = "English"
-		local success, err2 = core.switch(runtime, "English")
-		if success == nil then
-			mode = "Native"
-			handle_error(err2, { notify = "Failed to init method mode" })
-		end
-		runtime.method = mode
-		runtime.grammar = nil
-
-		logger.push_log(logger.make_log_task("LazyImeInit", "Main", nil, runtime))
+	logger.run_logger()
+	local port, socket, err = core.run_server()
+	if not port or not socket then
+		handle_error(err, { notify = "Failed run server", port = port, socket = socket })
 	end
+	runtime.port = port
+	runtime.tcp = socket
+
+	local cid, err1 = core.get_cid(runtime)
+	if cid == 0 then
+		handle_error(err1, { notify = "Failed run server", port = port, socket = socket })
+	end
+	runtime.cid = cid
+
+	local mode = "English"
+	local success, err2 = core.switch(runtime, "English")
+	if success == nil then
+		mode = "Native"
+		handle_error(err2, { notify = "Failed to init method mode" })
+	end
+	runtime.method = mode
+	runtime.grammar = nil
+
+	logger.push_log(logger.make_log_task("LazyImeInit", "Main", nil, runtime))
 end
 
 --- 排除非文件
@@ -89,7 +87,7 @@ local function ignore_buffer(ev)
 	end
 	-- 排除插件窗口
 	local ft = vim.api.nvim_get_option_value("filetype", { buf = ev.buf })
-	local ignore_ft = { "TelescopePrompt", "NvimTree", "lazy", "mason", "notify" }
+	local ignore_ft = { "TelescopePrompt", "NvimTree", "lazy", "mason", "notify", "neo-tree" }
 	if vim.tbl_contains(ignore_ft, ft) then
 		return true
 	end
@@ -104,14 +102,28 @@ function F.setup(opts)
 		group = AutoCmdsGroup,
 		callback = function(ev)
 			local task = function(params)
-				init_runtime()
-				time.sleep(100)
-				local ok, err = core.switch(params, "English")
-				if ok then
-					runtime.method = "English"
+				if runtime.port == 0 or not runtime.tcp or runtime.cid == 0 then
+					init_runtime()
+				end
+				local mode = vim.api.nvim_get_mode()
+
+				if mode.mode == "i" and not ignore_buffer(ev) then
+					--- 切回对应位置输入法
+					local grammar, method, err = core.grammar_analysis_and_switch(params)
+					if err then
+						handle_error(err)
+					end
+					params.grammar = grammar
+					params.method = method
 				else
-					handle_error(err)
-					runtime.method = "Native"
+					--- 强制切换到英文输入法
+					local ok, err = core.switch(params, "English")
+					if ok then
+						runtime.method = "English"
+					else
+						handle_error(err)
+						runtime.method = "Native"
+					end
 				end
 			end
 			add_task(ev, task)
@@ -130,15 +142,6 @@ function F.setup(opts)
 			end
 			add_task(ev, task)
 			logger.push_log(logger.make_log_task(ev.event, "Main", nil, runtime))
-		end,
-	})
-
-	vim.api.nvim_create_autocmd("BufEnter", {
-		group = AutoCmdsGroup,
-		callback = function(ev)
-			add_task(ev, function(_)
-				init_runtime()
-			end)
 		end,
 	})
 
