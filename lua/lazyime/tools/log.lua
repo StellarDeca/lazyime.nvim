@@ -29,6 +29,8 @@ local iolib = require("lazyime.tools.iolib")
 local Config = {
 	max_time = 5 * 1000,
 	log_path = iolib.get_log_path(),
+	-- 每次tick最大日志处理数量
+	max_tick_event_handle = 5,
 }
 
 local runtime = {
@@ -44,6 +46,7 @@ local runtime = {
 	---@class EventCache
 	---@field last_time number 该类型事件上次接受“新任务”的时间
 	---@field first_time number 该事件加入队列的时间
+	---@field ready boolean 该事件是否准备好写入
 	---@field traces table<integer, LogMessage[]> 存储该事件下不同 trace_id 的日志链
 	---@type table<string, EventCache>
 	log_cache = {},
@@ -130,11 +133,17 @@ function F.push_log(log)
 	local tid = log.trace_id
 	local cache = runtime.log_cache[key]
 
+	if cache and cache.ready then
+		-- 准备好写入的数据类型不在接受新的传入
+		return
+	end
+
 	if cache == nil then
 		--- 初始化
 		runtime.log_cache[key] = {
 			first_time = now,
 			last_time = now,
+			ready = false,
 			traces = { tid = { log } },
 		}
 	elseif cache.traces[tid] == nil then
@@ -200,9 +209,19 @@ function F.log_tick()
 		return
 	end
 	local now = vim.uv.now()
+	local i = Config.max_tick_event_handle
 	for key, cache in pairs(runtime.log_cache) do
-		if cache.first_time and now - cache.first_time >= Config.max_time then
-			F.write_log(key)
+		if not cache.ready and cache.first_time and now - cache.first_time >= Config.max_time then
+			cache.ready = true
+			if i > 0 then
+				F.write_log(key)
+			end
+			i = i - 1
+		elseif cache.ready then
+			if i > 0 then
+				F.write_log(key)
+			end
+			i = i - 1
 		end
 	end
 end
