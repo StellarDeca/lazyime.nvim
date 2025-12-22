@@ -65,7 +65,7 @@ end
 ---@param runtime table
 ---@return integer, Error? reason
 function F.get_cid(runtime)
-	local req = request.create_switch_req(0, "", "Lua", F.get_cursor())
+	local req = request.create_switch_req(0, "", "lua", F.get_cursor())
 	local res, err = F.request(runtime.tcp, req)
 	if not res or not res.success then
 		return 0, err

@@ -171,7 +171,7 @@ function F.write_log(event)
 	for _, logs in pairs(cache.traces) do
 		for _, log in ipairs(logs) do
 			local date = os.date("%Y-%m-%d", os.time())
-			local path = string.format("%s\\%s.log", Config.log_path, date)
+			local path = string.format("%s/%s.log", Config.log_path, date)
 			local ok, err = iolib.write(path, vim.inspect(log) .. "\n")
 			if not ok then
 				runtime.stopped = true
