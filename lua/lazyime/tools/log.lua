@@ -1,4 +1,5 @@
 ----- 日志模块 -----
+--- 日志文件按照时间顺序排列
 --- 上层只负责向日志队列中添加任务
 --- 日志模块负责对日志任务进行处理
 --- 日志模块不按照日志级别进行过滤
@@ -12,11 +13,21 @@
 ---@field fatal boolean true-错误可恢复-false-不可恢复
 ---@field panic boolean true-程序应当崩溃
 
+--- 日志事务样式
+--- 日至事务由多个ID相同的Log组成
+--- 每次push log仅仅推送了事务中的一部分
+--- 某个事务要么全盘接受要么全部丢弃
+---@class TraceEvent
+---@field trace_id integer  调用链ID
+---@field logs LogMessage[]  调用链事项数组
+---@field push_time number 首次push的时间
+---@field already boolean 事务是否可以开始记录
+
 --- 日志输出样式
 ---@class LogMessage
----@field name string 事件名
+---@field name string 普通事件名
 ---@field source string 事件模块名
----@field trace_id integer 调用链ID
+---@field trace integer 调用链ID
 ---@field time number 事件时间
 ---@field level "INFO" | "ERROR" | "WARN" 日志级别
 ---@field context table? 插件全局缓存数据
@@ -29,27 +40,24 @@ local iolib = require("lazyime.tools.iolib")
 local Config = {
 	max_time = 5 * 1000,
 	log_path = iolib.get_log_path(),
-	-- 每次tick最大日志处理数量
-	max_tick_event_handle = 5,
 }
 
 local runtime = {
 	--- 调用链ID
 	--- 再同一个进程中
-	--- 调用链ID唯一
-	--- 相同任务的不同log调用链ID相同
-	trace_id = 1,
+	--- 唯一标识一次调用链路
+	--- 事项是逐步处理的，不需要考虑并发
+	---@type { id: integer, type: string? }
+	trace = {
+		id = 1,
+		type = nil,
+	},
 
 	--- 日志事件缓存
-	--- 保证相同调用链ID的日志的完整性
-	--- 对于高频事项日志进行过滤
-	---@class EventCache
-	---@field last_time number 该类型事件上次接受“新任务”的时间
-	---@field first_time number 该事件加入队列的时间
-	---@field ready boolean 该事件是否准备好写入
-	---@field traces table<integer, LogMessage[]> 存储该事件下不同 trace_id 的日志链
-	---@type table<string, EventCache>
-	log_cache = {},
+	--- 每个调用链路一条记录
+	--- 按照调用链路类型去存储
+	---@type table<string, TraceEvent>
+	event_cache = {},
 
 	--- 日志系统崩溃后仅仅做一次通知
 	--- 之后结束日志系统的运行
@@ -81,44 +89,49 @@ function F.make_error(name, error, fatal, panic)
 	}
 end
 
---- 获取调用链ID
----@return integer
-function F.get_trace_id()
-	runtime.trace_id = runtime.trace_id + 1
-	return runtime.trace_id
-end
-
 --- 创建日志任务对象
 ---@param name string 事件名
 ---@param source string 事件模块名
----@param trace_id_ integer? 调用链ID
 ---@param context table? 插件全局缓存数据
 ---@param error Error? 错误信息
 ---@param info table? 详细信息
 ---@param level number? 日志级别默认INFO
 ---@return LogMessage
-function F.make_log_task(name, source, trace_id_, context, error, info, level)
-	local l
-	if not level or level == F.info then
-		l = "INFO"
-	elseif level == F.warn then
-		l = "WARN"
-	elseif level == F.error then
-		l = "ERROR"
+function F.make_log_task(name, source, context, error, info, level)
+	if not level then
+		level = F.default
 	end
 	local seconds, usec = vim.uv.gettimeofday()
-	local ms = math.floor(usec / 1000)
-	local formatted_time = os.date("%Y-%m-%d %H:%M:%S", seconds) .. ":" .. string.format("%03d", ms)
 	return {
 		name = name,
 		source = source,
-		trace_id = trace_id_ or 0,
-		time = formatted_time,
+		trace = runtime.trace.id,
+		time = (seconds * 1000) + math.floor(usec / 1000), --- 转换为 毫秒ms
 		context = context,
 		error = error,
 		info = info,
-		level = l,
+		level = level,
 	}
+end
+
+--- 获取新的调用链ID
+function F.next_trace_id()
+	runtime.trace.id = runtime.trace.id + 1
+end
+
+--- 为了区分调用链路的类型
+--- 在调用链路的起始使用nvim event name作为类型标识符
+--- log缓存调用链路类型
+--- 后续的log push无需传入类型参数直接获取当前调用链路类型
+--- 在调用链的结尾清除调用链路类型标识符
+---@param ev string
+function F.careat_trace_type(ev)
+	runtime.trace.type = ev
+end
+
+--- 清除临时调用链路类型标记
+function F.clear_trace_type()
+	runtime.trace.type = nil
 end
 
 --- 向日志队列中添加任务
@@ -127,102 +140,43 @@ function F.push_log(log)
 	if runtime.stopped then
 		return
 	end
-
-	local now = vim.uv.now()
-	local key = log.source .. log.name
-	local tid = log.trace_id
-	local cache = runtime.log_cache[key]
-
-	if cache and cache.ready then
-		-- 准备好写入的数据类型不在接受新的传入
-		return
-	end
-
+	local now = vim.uv.hrtime()
+	local trace_type = runtime.trace.type or log.name .. log.source
+	local cache = runtime.event_cache[trace_type]
 	if cache == nil then
-		--- 初始化
-		runtime.log_cache[key] = {
-			first_time = now,
-			last_time = now,
-			ready = false,
-			traces = { tid = { log } },
+		runtime.event_cache[trace_type] = {
+			trace_id = log.trace,
+			logs = { log },
+			push_time = now,
+			already = false,
 		}
-	elseif cache.traces[tid] == nil then
-		--- 调用链ID不存在
-		--- 比较同类型任务事件
-		if now - cache.last_time >= Config.max_time then
-			cache.first_time = now
-			cache.last_time = now
-			cache.traces[tid] = { log }
-		end
-		--- 高频任务舍弃
-	elseif cache.traces[tid] then
-		--- 存在相同调用链
-		--- 追加任务
-		cache.last_time = now
-		table.insert(cache.traces[tid], log)
+	elseif not cache.already and cache.trace_id == log.trace then
+		--- 相同调用链的一部分
+		table.insert(cache.logs, log)
+	else
+		--- 同类型但调用链ID不同直接丢弃
+		--- cache.already = true 舍弃所有内容 无论trace_id 是否相同
 	end
 end
 
---- 按照日期写入日志文件
----@param event string
-function F.write_log(event)
-	-- 收割这个事件类型
-	local cache = runtime.log_cache[event]
-	for _, logs in pairs(cache.traces) do
-		for _, log in ipairs(logs) do
-			local date = os.date("%Y-%m-%d", os.time())
-			local path = string.format("%s/%s.log", Config.log_path, date)
-			local ok, err = iolib.write(path, vim.inspect(log) .. "\n")
-			if not ok then
-				runtime.stopped = true
-				local message = "Lazyime log mode panic!" .. vim.inspect(err)
-				vim.schedule(function()
-					vim.notify(message, F.warn)
-				end)
-			end
-		end
-	end
-	--- 移除已做事项
-	runtime.log_cache[event] = nil
-end
-
---- 日志文件管理
---- 只保留一周的日志
---- 自动删除老旧日志
-function F.logs_manage()
-	iolib.gc_by_date(Config.log_path, 7, function(name)
-		local y, m, d = name:match("(%d%d%d%d)%-(%d%d)%-(%d%d)")
-		if not y then
-			return nil
-		end
-		return {
-			year = tonumber(y),
-			month = tonumber(m),
-			day = tonumber(d),
-		}
-	end)
-end
-
---- 检查runtime.log_cache是否满足了写入条件
+--- 检查runtime.event_cache是否满足了写入条件
 function F.log_tick()
 	if runtime.stopped then
 		return
 	end
-	local now = vim.uv.now()
-	local i = Config.max_tick_event_handle
-	for key, cache in pairs(runtime.log_cache) do
-		if not cache.ready and cache.first_time and now - cache.first_time >= Config.max_time then
-			cache.ready = true
-			if i > 0 then
-				F.write_log(key)
-			end
-			i = i - 1
-		elseif cache.ready then
-			if i > 0 then
-				F.write_log(key)
-			end
-			i = i - 1
+	local traces = {}
+	for k, v in pairs(runtime.event_cache) do
+		local now = vim.uv.hrtime()
+		if not v.already and now - v.push_time >= Config.max_time then
+			v.already = true
+			table.insert(traces, v)
+			runtime.event_cache[k] = nil
 		end
+	end
+	local ok, err = F.write_log(traces)
+	if not ok then
+		runtime.stopped = true
+		vim.notify(vim.inspect(err), F.error)
 	end
 end
 
@@ -251,6 +205,75 @@ function F.run_logger()
 			F.log_tick()
 		end)
 	)
+end
+
+--- 按照日期写入日志文件
+---@param traces TraceEvent[]
+---@return boolean ok
+---@return Error? err
+function F.write_log(traces)
+	local date = os.date("%Y-%m-%d", os.time())
+	local path = string.format("%s/%s.log", Config.log_path, date)
+	local function format_log(log)
+		local inspect_opts = {
+			depth = 4,
+			indent = "    ",
+		}
+		local l
+		if not log.level or log.level == F.info then
+			l = "INFO"
+		elseif log.level == F.warn then
+			l = "WARN"
+		elseif log.level == F.error then
+			l = "ERROR"
+		end
+
+		local s = math.floor(log.time / 1000)
+		local ms = log.time % 1000
+		local time = os.date("%Y-%m-%d %H:%M:%S", s) .. "." .. string.format("%03d", ms)
+
+		local header =
+			string.format("[-- [%s] %s | %5s | %s | Trace: %d --]\n", time, log.source, l, log.name, log.trace or 0)
+		local body = string.format(
+			"context=%s\nerror=%s\ninfo=%s\n-----     End     -----\n",
+			vim.inspect(log.context, inspect_opts) or "-----",
+			vim.inspect(log.error, inspect_opts) or "-----",
+			vim.inspect(log.info, inspect_opts) or "-----"
+		)
+		return header .. body
+	end
+	table.sort(traces, function(a, b)
+		return a.push_time < b.push_time
+	end)
+	for _, v in ipairs(traces) do
+		table.sort(v.logs, function(a, b)
+			return a.time < b.time
+		end)
+		for _, log in ipairs(v.logs) do
+			local ok, err = iolib.write(path, format_log(log))
+			if not ok then
+				return false, err
+			end
+		end
+	end
+	return true, nil
+end
+
+--- 日志文件管理
+--- 只保留一周的日志
+--- 自动删除老旧日志
+function F.logs_manage()
+	iolib.gc_by_date(Config.log_path, 7, function(name)
+		local y, m, d = name:match("(%d%d%d%d)%-(%d%d)%-(%d%d)")
+		if not y then
+			return nil
+		end
+		return {
+			year = tonumber(y),
+			month = tonumber(m),
+			day = tonumber(d),
+		}
+	end)
 end
 
 return F
