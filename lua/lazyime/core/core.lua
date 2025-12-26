@@ -40,6 +40,8 @@ function F.request(tcp, req)
 end
 
 --- 启动并连接服务器
+--- 如果服务器可执行文件不存在
+--- 自动下载并解压缩服务器
 ---@return integer? port
 ---@return uv.uv_tcp_t? socket
 ---@return Error? error

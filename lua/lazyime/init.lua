@@ -1,6 +1,7 @@
 ------ lazyime 入口文件 ------
 
 local F = {}
+local iolib = require("lazyime.tools.iolib")
 local logger = require("lazyime.tools.log")
 local tasks = require("lazyime.core.tasks")
 local core = require("lazyime.core.core")
@@ -95,6 +96,10 @@ end
 
 function F.setup(opts)
 	opts = opts or {}
+	--- 加载插件检查 server 可执行文件存在性
+	if vim.fn.filereadable(iolib.get_server_path()) == 0 then
+		vim.cmd("LazyimeInit")
+	end
 
 	-- FocusGained, VimLeave, BufEnter AutoCmd
 	vim.api.nvim_create_autocmd("FocusGained", {
