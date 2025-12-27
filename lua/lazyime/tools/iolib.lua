@@ -3,30 +3,20 @@
 local F = {}
 
 function F.root()
-	local path = vim.api.nvim_get_runtime_file("lua/lazyime/init.lua", false)[1]
-	return vim.fn.fnamemodify(path, ":p:h")
+	return vim.fn.stdpath("state") .. "/lazyime"
 end
 
 function F.get_server_path()
-	local static = F.root() .. "/static/"
+	local static = F.root() .. "/server/"
 	if vim.fn.has("win32") == 1 then
-		return static .. "windows/LazyInputSwitcher.exe"
-	elseif vim.fn.has("mac") == 1 then
-		local info = vim.uv.os_uname()
-		local arch_dir = ""
-		if info.machine == "arm64" then
-			arch_dir = "macos/arm64"
-		else
-			arch_dir = "macos/intel64"
-		end
-		return static .. arch_dir .. "LazyInputSwitcher"
+		return static .. "LazyInputSwitcher.exe"
 	else
-		return static .. "linux/LazyInputSwitcher"
+		return static .. "LazyInputSwitcher"
 	end
 end
 
 function F.get_log_path()
-	return vim.fn.stdpath("state") .. "/lazyime/logs"
+	return F.root() .. "/logs"
 end
 
 local function ensure_dir(path)
@@ -44,7 +34,11 @@ local function ensure_dir(path)
 	end
 
 	local ok, err = vim.uv.fs_mkdir(path, 493) -- 0755
-	if not ok and err ~= "EEXIST" then
+	if not ok then
+		local stat2 = vim.uv.fs_stat(path)
+		if stat2 and stat2.type == "directory" then
+			return
+		end
 		error(err)
 	end
 end

@@ -46,6 +46,10 @@ function F.work()
 				-- 分配任务
 				-- 大部分错误由 task 内部处理
 				-- 这里仅仅捕获致命错误
+
+				--- 创建 logger 调用链ID
+				logger.next_trace_id()
+
 				local ok, err = pcall(task_.task, task_.params)
 				if not ok then
 					vim.schedule(function()
@@ -54,7 +58,6 @@ function F.work()
 							logger.make_log_task(
 								"TaskMGR",
 								"core.task",
-								nil,
 								{ task_queue = queue },
 								err,
 								task_.params,

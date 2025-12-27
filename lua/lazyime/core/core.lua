@@ -12,8 +12,7 @@ local response = require("lazyime.tools.response")
 ---@param req ClientRequest
 ---@return ClientResponse? res, Error? err
 function F.request(tcp, req)
-	local tid = logger.get_trace_id()
-	logger.push_log(logger.make_log_task("RequestSend", "core.core", tid, nil, nil, req))
+	logger.push_log(logger.make_log_task("RequestSend", "core.core", nil, nil, req))
 
 	local msg, err1 = request.to_json_message(req)
 	if not msg then
@@ -35,12 +34,14 @@ function F.request(tcp, req)
 		return nil, err4
 	end
 
-	logger.push_log(logger.make_log_task("ResponseRecv", "core.core", tid, nil, nil, res))
+	logger.push_log(logger.make_log_task("ResponseRecv", "core.core", nil, nil, res))
 
 	return res, nil
 end
 
 --- 启动并连接服务器
+--- 如果服务器可执行文件不存在
+--- 自动下载并解压缩服务器
 ---@return integer? port
 ---@return uv.uv_tcp_t? socket
 ---@return Error? error

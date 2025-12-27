@@ -1,6 +1,7 @@
 ------ lazyime 入口文件 ------
 
 local F = {}
+local iolib = require("lazyime.tools.iolib")
 local logger = require("lazyime.tools.log")
 local tasks = require("lazyime.core.tasks")
 local core = require("lazyime.core.core")
@@ -41,7 +42,7 @@ local function handle_error(err, info)
 		vim.notify(("Lazyime warn: %s"):format(err.error), vim.log.levels.WARN)
 	end
 	--- 记录错误
-	logger.push_log(logger.make_log_task("ErrorHandle", "Main", nil, runtime, err, info, logger.warn))
+	logger.push_log(logger.make_log_task("ErrorHandle", "Main", runtime, err, info, logger.warn))
 end
 
 --- 初始化 runtime 缓存表
@@ -70,7 +71,7 @@ local function init_runtime()
 	runtime.method = mode
 	runtime.grammar = nil
 
-	logger.push_log(logger.make_log_task("LazyImeInit", "Main", nil, runtime))
+	logger.push_log(logger.make_log_task("LazyImeInit", "Main", runtime))
 end
 
 --- 排除非文件
@@ -86,7 +87,7 @@ local function ignore_buffer(ev)
 	end
 	-- 排除插件窗口
 	local ft = vim.api.nvim_get_option_value("filetype", { buf = ev.buf })
-	local ignore_ft = { "TelescopePrompt", "NvimTree", "lazy", "mason", "notify", "neo-tree" }
+	local ignore_ft = { "", "TelescopePrompt", "NvimTree", "lazy", "mason", "notify", "neo-tree" }
 	if vim.tbl_contains(ignore_ft, ft) then
 		return true
 	end
@@ -95,12 +96,20 @@ end
 
 function F.setup(opts)
 	opts = opts or {}
+	--- 加载插件检查 server 可执行文件存在性
+	if vim.fn.filereadable(iolib.get_server_path()) == 0 then
+		vim.notify("Not found sever! Use: LazyimeInit to install server!", vim.log.levels.WARN)
+		return
+	end
 
 	-- FocusGained, VimLeave, BufEnter AutoCmd
 	vim.api.nvim_create_autocmd("FocusGained", {
 		group = AutoCmdsGroup,
 		callback = function(ev)
+			logger.careat_trace_type(ev.event)
 			local task = function(params)
+				logger.push_log(logger.make_log_task(ev.event, "Main", runtime))
+
 				if runtime.port == 0 or not runtime.tcp or runtime.cid == 0 then
 					init_runtime()
 				end
@@ -126,21 +135,25 @@ function F.setup(opts)
 				end
 			end
 			add_task(ev, task)
-			logger.push_log(logger.make_log_task(ev.event, "Main", nil, runtime))
+			logger.clear_trace_type()
 		end,
 	})
 
 	vim.api.nvim_create_autocmd("VimLeave", {
 		group = AutoCmdsGroup,
 		callback = function(ev)
+			logger.careat_trace_type(ev.event)
+
 			local task = function(params)
+				logger.push_log(logger.make_log_task(ev.event, "Main", runtime))
+
 				local ok, err = core.stop_server(params)
 				if not ok then
 					handle_error(err)
 				end
 			end
 			add_task(ev, task)
-			logger.push_log(logger.make_log_task(ev.event, "Main", nil, runtime))
+			logger.clear_trace_type()
 		end,
 	})
 
@@ -151,7 +164,10 @@ function F.setup(opts)
 			if ignore_buffer(ev) then
 				return
 			end
+			logger.careat_trace_type(ev.event)
+
 			local task = function(param)
+				logger.push_log(logger.make_log_task(ev.event, "Main", runtime))
 				local grammar, method, err = core.grammar_analysis_and_switch(param)
 				if err then
 					handle_error(err)
@@ -160,21 +176,24 @@ function F.setup(opts)
 				param.method = method
 			end
 			add_task(ev, task)
-			logger.push_log(logger.make_log_task(ev.event, "Main", nil, runtime))
+			logger.clear_trace_type()
 		end,
 	})
 
 	vim.api.nvim_create_autocmd("InsertLeave", {
 		group = AutoCmdsGroup,
 		callback = function(ev)
+			logger.careat_trace_type(ev.event)
+
 			local task = function(param)
+				logger.push_log(logger.make_log_task(ev.event, "Main", runtime))
 				local ok, err = core.switch(param, "English")
 				if not ok then
 					handle_error(err)
 				end
 			end
 			add_task(ev, task)
-			logger.push_log(logger.make_log_task(ev.event, "Main", nil, runtime))
+			logger.clear_trace_type()
 		end,
 	})
 
@@ -185,8 +204,12 @@ function F.setup(opts)
 			if ignore_buffer(ev) then
 				return
 			end
+			logger.careat_trace_type(ev.event)
+
 			local task = function(param)
 				--- 仅仅在 grammar 发生变化时进行切换
+				logger.push_log(logger.make_log_task(ev.event, "Main", runtime))
+
 				local grammar, err = core.grammer_analysis(param)
 				if err then
 					handle_error(err)
@@ -206,7 +229,7 @@ function F.setup(opts)
 				end
 			end
 			add_task(ev, task)
-			logger.push_log(logger.make_log_task(ev.event, "Main", nil, runtime))
+			logger.clear_trace_type()
 		end,
 	})
 end
