@@ -98,7 +98,8 @@ function F.setup(opts)
 	opts = opts or {}
 	--- 加载插件检查 server 可执行文件存在性
 	if vim.fn.filereadable(iolib.get_server_path()) == 0 then
-		vim.cmd("LazyimeInit")
+		vim.notify("Not found sever! Use: LazyimeInit to install server!", vim.log.levels.WARN)
+		return
 	end
 
 	-- FocusGained, VimLeave, BufEnter AutoCmd
