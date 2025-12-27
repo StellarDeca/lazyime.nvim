@@ -18,6 +18,12 @@ local function environment()
 	end
 end
 
+local function notify(msg, level)
+	vim.schedule(function()
+		vim.notify(msg, level)
+	end)
+end
+
 --- 初始化初始化layime server配置
 --- 下载最新版本或指定版本server
 vim.api.nvim_create_user_command("LazyimeInit", function()
@@ -27,13 +33,12 @@ vim.api.nvim_create_user_command("LazyimeInit", function()
 	local url = "https://github.com/StellarDeca/LazyInputSwitcher/releases/latest/download/" .. filename
 	local ok, err = iolib.make_dir(dir)
 	if not ok and err then
-        vim.print(err)
-		vim.notify(("Failed to create path: %s\n%s"):format(dir, err.error), vim.log.levels.ERROR)
+		notify(("Failed to create path: %s\n%s"):format(dir, err.error), vim.log.levels.ERROR)
 		return
 	end
 
 	if vim.fn.executable("curl") == 1 then
-		vim.notify("Start download LazyIME server...", vim.log.levels.INFO)
+		notify("Start download LazyIME server...", vim.log.levels.INFO)
 		-- 参数
 		-- -f: HTTP 错误时不输出内容
 		-- -L: 跟随GitHub Release重定向
@@ -47,9 +52,9 @@ vim.api.nvim_create_user_command("LazyimeInit", function()
 			"30",
 			url,
 		}, {}, function(res)
-			vim.notify("Download finished.\nExtracting server ..", vim.log.levels.INFO)
+			notify("Download finished.\nExtracting server ..", vim.log.levels.INFO)
 			if res.code ~= 0 then
-				vim.notify(("Failed to download server! Exit code: %d"):format(res.code), vim.log.levels.ERROR)
+				notify(("Failed to download server! Exit code: %d"):format(res.code), vim.log.levels.ERROR)
 				return
 			end
 			-- 解压缩server
@@ -63,19 +68,19 @@ vim.api.nvim_create_user_command("LazyimeInit", function()
 			elseif path:match("%.tar%.gz$") then
 				extract_cmd = { "tar", "-xzf", path, "-C", dir }
 			else
-				vim.notify("Unknown archive format: " .. path, vim.log.levels.ERROR)
+				notify("Unknown archive format: " .. path, vim.log.levels.ERROR)
 				return
 			end
 			vim.system(extract_cmd, {}, function(res_)
 				if res_.code ~= 0 then
-					vim.notify(("Failed to eatract server! Exit code: %d"):format(res.code), vim.log.levels.ERROR)
+					notify(("Failed to eatract server! Exit code: %d"):format(res.code), vim.log.levels.ERROR)
 				else
-					vim.notify("Sunccess install server!", vim.log.levels.INFO)
+					notify("Sunccess install server!", vim.log.levels.INFO)
 				end
 			end)
 		end)
 	else
-		vim.notify("curl not found, could not download server!\n" .. url, vim.log.levels.ERROR)
+		notify("curl not found, could not download server!\n" .. url, vim.log.levels.ERROR)
 	end
 end, { desc = "LazyimeInit" })
 
@@ -102,5 +107,5 @@ vim.api.nvim_create_user_command("LazyimeUnload", function()
 		end
 	end
 
-	vim.notify("Lazyime unload successful", vim.log.levels.INFO)
+	notify("Lazyime unload successful", vim.log.levels.INFO)
 end, { desc = "LazyimeUnload" })
