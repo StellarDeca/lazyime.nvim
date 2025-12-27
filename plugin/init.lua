@@ -3,7 +3,7 @@ local iolib = require("lazyime.tools.iolib")
 
 --- 判断操作系统环境并构建release文件名
 ---@return string
-local function envirement()
+local function environment()
 	if vim.fn.has("win32") == 1 then
 		return "windows-x86_64.zip"
 	elseif vim.fn.has("mac") == 1 then
@@ -21,8 +21,8 @@ end
 --- 下载指定仓库的最新版release文件
 ---@return string server_path
 local function download_server()
-	local dir = iolib.root() .. "/server"
-	local filename = envirement()
+	local dir = iolib.root() .. "/server/"
+	local filename = environment()
 	local url = "https://github.com/StellarDeca/LazyInputSwitcher/releases/latest/download/" .. filename
 	local ok, err = iolib.make_dir(dir)
 	if not ok and err then
