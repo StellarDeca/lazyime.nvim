@@ -19,7 +19,6 @@ local function environment()
 end
 
 --- 下载指定仓库的最新版release文件
----@return string server_path
 local function download_server()
 	local dir = iolib.root() .. "/server/"
 	local filename = environment()
@@ -49,14 +48,12 @@ local function download_server()
 	else
 		error("curl not found, could not download server!\n" .. url)
 	end
-
-	return dir .. filename
 end
 
 --- 解压缩 server release文件
-local function extra(file_name)
-	local dir = iolib.root() .. "/server"
-	local path = dir .. "/" .. file_name
+local function extra()
+	local dir = iolib.root() .. "/server/"
+	local path = dir .. environment()
 
 	if path:match("%.zip$") then
 		local ps_cmd =
@@ -81,15 +78,15 @@ end
 --- 下载最新版本或指定版本server
 vim.api.nvim_create_user_command("LazyimeInit", function()
 	vim.notify("Start download Lazyime server", vim.log.levels.INFO)
-	local ok, archive = pcall(download_server)
+	local ok, err = pcall(download_server)
 	if not ok then
-		vim.notify("Download failed: " .. archive, vim.log.levels.ERROR)
+		vim.notify("Download failed: " .. err, vim.log.levels.ERROR)
 		return
 	end
 
-	local ok2, err = pcall(extra, archive)
+	local ok2, err1 = pcall(extra)
 	if not ok2 then
-		vim.notify("Extract failed: " .. err, vim.log.levels.ERROR)
+		vim.notify("Extract failed: " .. err1, vim.log.levels.ERROR)
 		return
 	end
 
