@@ -34,7 +34,11 @@ local function ensure_dir(path)
 	end
 
 	local ok, err = vim.uv.fs_mkdir(path, 493) -- 0755
-	if not ok and err ~= "EEXIST" then
+	if not ok then
+		local stat2 = vim.uv.fs_stat(path)
+		if stat2 and stat2.type == "directory" then
+			return
+		end
 		error(err)
 	end
 end
