@@ -105,8 +105,8 @@ function F.setup(opts)
 		return
 	end
 
-	-- FocusGained, VimLeave, BufEnter AutoCmd
-	vim.api.nvim_create_autocmd("FocusGained", {
+	-- FocusGained, VimLeave, VimEnter AutoCmd
+	vim.api.nvim_create_autocmd({ "FocusGained", "VimEnter" }, {
 		group = AutoCmdsGroup,
 		callback = function(ev)
 			-- 仅仅在 nvim 启动 或切回时用于初始化输入法状态
