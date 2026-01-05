@@ -46,32 +46,35 @@ local function handle_error(err, info)
 end
 
 --- 初始化 runtime 缓存表
+--- 每次使用 runtime 都应当检查 runtime 可用性
 --- 确保只初始化一次
-local function init_runtime()
-	logger.run_logger()
-	local port, socket, err = core.run_server()
-	if not port or not socket then
-		handle_error(err, { notify = "Failed run server", port = port, socket = socket })
-	end
-	runtime.port = port
-	runtime.tcp = socket
+local function ensure_runtime()
+	if runtime.port == 0 or not runtime.tcp or runtime.cid == 0 then
+		logger.run_logger()
+		local port, socket, err = core.run_server()
+		if not port or not socket then
+			handle_error(err, { notify = "Failed run server", port = port, socket = socket })
+		end
+		runtime.port = port
+		runtime.tcp = socket
 
-	local cid, err1 = core.get_cid(runtime)
-	if cid == 0 then
-		handle_error(err1, { notify = "Failed run server", port = port, socket = socket })
-	end
-	runtime.cid = cid
+		local cid, err1 = core.get_cid(runtime)
+		if cid == 0 then
+			handle_error(err1, { notify = "Failed run server", port = port, socket = socket })
+		end
+		runtime.cid = cid
 
-	local mode = "English"
-	local success, err2 = core.switch(runtime, "English")
-	if success == nil then
-		mode = "Native"
-		handle_error(err2, { notify = "Failed to init method mode" })
-	end
-	runtime.method = mode
-	runtime.grammar = nil
+		local mode = "English"
+		local success, err2 = core.switch(runtime, "English")
+		if success == nil then
+			mode = "Native"
+			handle_error(err2, { notify = "Failed to init method mode" })
+		end
+		runtime.method = mode
+		runtime.grammar = nil
 
-	logger.push_log(logger.make_log_task("LazyImeInit", "Main", runtime))
+		logger.push_log(logger.make_log_task("LazyImeInit", "Main", runtime))
+	end
 end
 
 --- 排除非文件
@@ -106,15 +109,13 @@ function F.setup(opts)
 	vim.api.nvim_create_autocmd("FocusGained", {
 		group = AutoCmdsGroup,
 		callback = function(ev)
+			-- 仅仅在 nvim 启动 或切回时用于初始化输入法状态
 			logger.careat_trace_type(ev.event)
 			local task = function(params)
 				logger.push_log(logger.make_log_task(ev.event, "Main", runtime))
+				ensure_runtime()
 
-				if runtime.port == 0 or not runtime.tcp or runtime.cid == 0 then
-					init_runtime()
-				end
 				local mode = vim.api.nvim_get_mode()
-
 				if mode.mode == "i" and not ignore_buffer(ev) then
 					--- 切回对应位置输入法
 					local grammar, method, err = core.grammar_analysis_and_switch(params)
@@ -146,6 +147,7 @@ function F.setup(opts)
 
 			local task = function(params)
 				logger.push_log(logger.make_log_task(ev.event, "Main", runtime))
+				ensure_runtime()
 
 				local ok, err = core.stop_server(params)
 				if not ok then
@@ -168,6 +170,8 @@ function F.setup(opts)
 
 			local task = function(param)
 				logger.push_log(logger.make_log_task(ev.event, "Main", runtime))
+				ensure_runtime()
+
 				local grammar, method, err = core.grammar_analysis_and_switch(param)
 				if err then
 					handle_error(err)
@@ -187,6 +191,8 @@ function F.setup(opts)
 
 			local task = function(param)
 				logger.push_log(logger.make_log_task(ev.event, "Main", runtime))
+				ensure_runtime()
+
 				local ok, err = core.switch(param, "English")
 				if not ok then
 					handle_error(err)
@@ -209,6 +215,7 @@ function F.setup(opts)
 			local task = function(param)
 				--- 仅仅在 grammar 发生变化时进行切换
 				logger.push_log(logger.make_log_task(ev.event, "Main", runtime))
+				ensure_runtime()
 
 				local grammar, err = core.grammer_analysis(param)
 				if err then
