@@ -75,7 +75,7 @@ vim.api.nvim_create_user_command("LazyimeInit", function()
 				if res_.code ~= 0 then
 					notify(("Failed to eatract server! Exit code: %d"):format(res.code), vim.log.levels.ERROR)
 				else
-					notify("Sunccess install server!", vim.log.levels.INFO)
+					notify("Sunccess install server! please reboot nvim", vim.log.levels.INFO)
 				end
 			end)
 		end)
