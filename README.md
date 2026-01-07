@@ -58,6 +58,15 @@ LazyInputSwitcher (Rust 本地服务)
 
 ---
 
+## 受支持的编程语言
+
+当前客户端所支持的编程语言取决于服务器端的 Tree-sitter 适配情况。
+已支持的语言如下：
+
+C、Java、JavaScript、Lua、Python、Rust
+
+如要拓展更多语言支持，请参考 https://github.com/StellarDeca/LazyInputSwitcher
+
 ## 📦 安装
 
 ### 使用 lazy.nvim
